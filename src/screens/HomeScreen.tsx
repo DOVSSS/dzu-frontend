@@ -53,24 +53,26 @@ export default function HomeScreen({ navigation }: any) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Хедер */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Привет! 👋</Text>
-          <Text style={styles.headerTitle}>Что будем есть?</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.ordersBtn}
-            onPress={() => navigation.navigate('Orders')}
-          >
-            <Text style={styles.ordersBtnText}>📦 Заказы</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Выйти</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+{/* Хедер */}
+<View style={styles.header}>
+  <TouchableOpacity
+    style={styles.profileBtn}
+    onPress={() => navigation.navigate('Profile')}
+  >
+    <Text style={styles.profileBtnText}>👤 Профиль</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    style={styles.ordersBtn}
+    onPress={() => navigation.navigate('Orders')}
+  >
+    <Text style={styles.ordersBtnText}>📦 Заказы</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+    <Text style={styles.logoutText}>Выйти</Text>
+  </TouchableOpacity>
+</View>
 
       <FlatList
         data={restaurants}
@@ -161,4 +163,11 @@ const styles = StyleSheet.create({
   errorText: { color: COLORS.error },
   btn: { backgroundColor: COLORS.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
   btnText: { color: '#fff', fontWeight: '600' },
+
+  profileBtn: {
+  backgroundColor: COLORS.border,
+  paddingHorizontal: 12, paddingVertical: 6,
+  borderRadius: 20,
+},
+profileBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
 });

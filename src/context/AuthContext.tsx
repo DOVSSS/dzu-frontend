@@ -19,41 +19,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await TokenManager.init();
-        const savedToken = TokenManager.getToken();
-        if (savedToken) {
-          setToken(savedToken);
-        }
-      } catch (error) {
-        console.error('Session restore failed:', error);
-        await TokenManager.clearToken();
-        setToken(null);
-      } finally {
-        setIsLoading(false);
+useEffect(() => {
+  const initAuth = async () => {
+    try {
+      await TokenManager.init();
+      const savedToken = TokenManager.getToken();
+      const savedUser = TokenManager.getUser();
+      if (savedToken && savedUser) {
+        setToken(savedToken);
+        setUser(savedUser);
       }
-    };
-
-    initAuth();
-  }, []);
-
-  const applyAuthResponse = async (data: AuthResponse): Promise<void> => {
-    await TokenManager.setToken(data.accessToken);
-    setToken(data.accessToken);
-    setUser(data.user);
-
-    // Сохраняем push-токен (пригодится для уведомлений о статусе заказа)
-    const pushToken = await registerForPushNotifications();
-    if (pushToken) {
-      try {
-        await api.patch(`/users/${data.user.id}`, { pushToken });
-      } catch (e) {
-        console.log('Push token save failed:', e);
-      }
+    } catch (error) {
+      console.error('Session restore failed:', error);
+      await TokenManager.clearToken();
+      setToken(null);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  initAuth();
+}, []);
+
+const applyAuthResponse = async (data: AuthResponse): Promise<void> => {
+  await TokenManager.setToken(data.accessToken);
+  await TokenManager.setRefreshToken(data.refreshToken);
+  await TokenManager.setUser(data.user);
+  setToken(data.accessToken);
+  setUser(data.user);
+
+  const pushToken = await registerForPushNotifications();
+  if (pushToken) {
+    try {
+      await api.patch(`/users/${data.user.id}`, { pushToken });
+    } catch (e) {
+    }
+  }
+};
 
   const login = async (email: string, password: string): Promise<void> => {
     const data = await loginRequest({ email, password });
@@ -81,8 +84,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateUser = async (data: Partial<User>): Promise<void> => {
+  if (!user) return;
+  const response = await api.patch(`/users/${user.id}`, data);
+  setUser(response.data);
+  await TokenManager.setUser(response.data);
+};
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout,updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -16,8 +16,7 @@ export const COLORS = {
 
 export const STATUS_MAP: Record<string, { label: string; color: string }> = {
   PENDING:    { label: 'Ожидает',      color: '#F59E0B' },
-  CONFIRMED:  { label: 'Подтверждён',  color: '#3B82F6' },
-  PREPARING:  { label: 'Готовится',    color: '#8B5CF6' },
+  ACCEPTED:   { label: 'Принят',       color: '#3B82F6' },
   READY:      { label: 'Готов',        color: '#10B981' },
   DELIVERING: { label: 'Доставляется', color: '#F97316' },
   DELIVERED:  { label: 'Доставлен',    color: '#6B7280' },

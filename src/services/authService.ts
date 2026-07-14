@@ -13,7 +13,6 @@ export const loginRequest = async (
   data: LoginRequest,
 ): Promise<AuthResponse> => {
   const response = await apiClient.post<AuthResponse>('/auth/login', data);
-  console.log('RAW AUTH RESPONSE:', JSON.stringify(response.data));
   
   return response.data;
 };

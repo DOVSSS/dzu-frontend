@@ -29,6 +29,12 @@ export type Order = {
   comment?: string;
   createdAt: string;
   items: OrderItem[];
+  courierLat?: number | null;
+  courierLng?: number | null;
+  courier?: {
+    name: string;
+    phone: string;
+  } | null;
 };
 
 export const createOrder = async (payload: CreateOrderPayload) => {
@@ -39,5 +45,10 @@ export const createOrder = async (payload: CreateOrderPayload) => {
 // ← добавь этот метод
 export const getMyOrders = async (): Promise<Order[]> => {
   const response = await api.get('/orders/my-orders');
+  return response.data;
+};
+
+export const cancelOrder = async (orderId: string): Promise<Order> => {
+  const response = await api.post(`/orders/${orderId}/cancel`);
   return response.data;
 };

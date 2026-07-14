@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, ActivityIndicator,
-  TouchableOpacity, RefreshControl,
+  TouchableOpacity, RefreshControl, Alert,
 } from 'react-native';
-import { getMyOrders, Order } from '../services/orderService';
+import { getMyOrders, cancelOrder, Order } from '../services/orderService';
 import { COLORS, STATUS_MAP } from '../constants/theme';
 
 export default function OrdersScreen() {
@@ -11,6 +11,7 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const loadOrders = async () => {
     try {
@@ -26,9 +27,38 @@ export default function OrdersScreen() {
     }
   };
 
-  useEffect(() => { loadOrders(); }, []);
+  useEffect(() => {
+    loadOrders();
+    const interval = setInterval(loadOrders, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const onRefresh = useCallback(() => { setRefreshing(true); loadOrders(); }, []);
+
+  const handleCancel = (order: Order) => {
+    Alert.alert(
+      'Отменить заказ?',
+      `Заказ #${order.reference} будет отменён`,
+      [
+        { text: 'Назад', style: 'cancel' },
+        {
+          text: 'Отменить',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setCancellingId(order.id);
+              const updated = await cancelOrder(order.id);
+              setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+            } catch (e: any) {
+              Alert.alert('Ошибка', 'Не удалось отменить заказ');
+            } finally {
+              setCancellingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   if (loading) return (
     <View style={styles.centered}>
@@ -67,9 +97,11 @@ export default function OrdersScreen() {
       }
       renderItem={({ item }) => {
         const status = STATUS_MAP[item.status] ?? { label: item.status, color: COLORS.textMuted };
+        const isDelivering = item.status === 'DELIVERING';
+        const canCancel = item.status === 'PENDING' || item.status === 'ACCEPTED';
+
         return (
           <View style={styles.card}>
-            {/* Цветная полоска */}
             <View style={[styles.cardAccent, { backgroundColor: status.color }]} />
             <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
@@ -86,6 +118,14 @@ export default function OrdersScreen() {
                 </View>
               ))}
 
+              {isDelivering && item.courier && (
+                <View style={styles.courierBlock}>
+                  <Text style={styles.courierText}>
+                    🚴 {item.courier.name} · {item.courier.phone}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.cardFooter}>
                 <Text style={styles.date}>
                   {new Date(item.createdAt).toLocaleDateString('ru-RU', {
@@ -95,6 +135,19 @@ export default function OrdersScreen() {
                 </Text>
                 <Text style={styles.total}>{item.total} ₽</Text>
               </View>
+
+              {canCancel && (
+                <TouchableOpacity
+                  style={[styles.cancelBtn, cancellingId === item.id && styles.cancelBtnDisabled]}
+                  onPress={() => handleCancel(item)}
+                  disabled={cancellingId === item.id}
+                >
+                  {cancellingId === item.id
+                    ? <ActivityIndicator color={COLORS.error} size="small" />
+                    : <Text style={styles.cancelBtnText}>Отменить заказ</Text>
+                  }
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         );
@@ -125,12 +178,25 @@ const styles = StyleSheet.create({
   itemName: { flex: 1, fontSize: 13, color: COLORS.text, marginRight: 8 },
   itemMeta: { fontSize: 13, color: COLORS.textSecondary },
 
+  courierBlock: {
+    backgroundColor: '#FFF7ED', borderRadius: 8, padding: 8, marginTop: 8,
+  },
+  courierText: { fontSize: 13, color: '#C2410C', fontWeight: '600' },
+
   cardFooter: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border,
   },
   date: { fontSize: 12, color: COLORS.textMuted },
   total: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+
+  cancelBtn: {
+    marginTop: 10, paddingVertical: 8, borderRadius: 8,
+    borderWidth: 1, borderColor: COLORS.error,
+    alignItems: 'center',
+  },
+  cancelBtnDisabled: { opacity: 0.5 },
+  cancelBtnText: { color: COLORS.error, fontWeight: '600', fontSize: 13 },
 
   emptyIcon: { fontSize: 48 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },

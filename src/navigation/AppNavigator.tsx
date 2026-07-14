@@ -2,10 +2,13 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
 import RestaurantScreen from '../screens/RestaurantScreen';
+import OrdersScreen from '../screens/OrdersScreen';
+import { Restaurant } from '../types/api.types';
 
 export type AppStackParamList = {
   Home: undefined;
-  Restaurant: { restaurantId: string; name: string };
+  Restaurant: { restaurant: Restaurant };
+  Orders: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -23,8 +26,12 @@ export default function AppStack() {
       />
       <Stack.Screen
         name="Restaurant"
-        component={RestaurantScreen}
-        // Убираем options отсюда — title выставим внутри самого экрана
+        component={RestaurantScreen as any}
+      />
+      <Stack.Screen
+        name="Orders"
+        component={OrdersScreen}
+        options={{ title: 'Мои заказы' }}
       />
     </Stack.Navigator>
   );

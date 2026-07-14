@@ -1,8 +1,4 @@
-// ============================================
-// USER
-// Соответствует модели User в Prisma
-// Пароль НИКОГДА не возвращаем на клиент
-// ============================================
+
 export type UserRole = 'USER' | 'RESTAURANT' | 'COURIER' | 'ADMIN';
 
 export interface User {
@@ -17,10 +13,6 @@ export interface User {
   updatedAt?: string;
 }
 
-// ============================================
-// RESTAURANT
-// Соответствует модели Restaurant в Prisma
-// ============================================
 export interface Restaurant {
   id: string;
   name: string;
@@ -31,32 +23,34 @@ export interface Restaurant {
    products: Product[];
 }
 
-// ============================================
-// PRODUCT
-// Соответствует модели Product в Prisma
-// price: Int → number (копейки или целые единицы — зависит от бэка)
-// ============================================
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  emoji: string;
+}
+
+
 export interface Product {
   id: string;
   name: string;
   slug: string;
   description: string;
-  price: number;       // Int в Prisma
+  price: number;
   image: string;
   restaurantId: string;
+  categoryId?: string;
+  category?: Category;
   createdAt: string;
   updatedAt: string;
 }
 
-// Restaurant с вложенными продуктами
-// Используется на экране меню ресторана
 export interface RestaurantWithProducts extends Restaurant {
   products: Product[];
 }
 
-// ============================================
-// ORDER
-// ============================================
+
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'DELIVERING' | 'DELIVERED' | 'CANCELLED';
 
 export interface OrderItem {
@@ -65,27 +59,25 @@ export interface OrderItem {
   productId: string;
   quantity: number;
   price: number;
-  productName: string;   // @map("product_name") — денормализовано
-  productImage: string;  // @map("product_image") — денормализовано
+  productName: string;   
+  productImage: string;  
 }
 
 export interface Order {
   id: string;
-  reference: string;         // уникальный номер заказа
+  reference: string;         
   status: OrderStatus;
   total: number;
-  deliveryAddress: string | null;   // String? в Prisma
-  deliveryTime: string | null;      // DateTime? → string | null
-  comment: string | null;           // String? в Prisma
+  deliveryAddress: string | null;   
+  deliveryTime: string | null;      
+  comment: string | null;           
   userId: string | null;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
 }
 
-// ============================================
-// AUTH — запросы и ответы
-// ============================================
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -105,9 +97,7 @@ export interface AuthResponse {
   refreshToken: string;  // ← добавляем
 }
 
-// ============================================
-// CREATE ORDER — тело запроса
-// ============================================
+
 export interface CreateOrderItemRequest {
   productId: string;
   quantity: number;
@@ -119,6 +109,6 @@ export interface CreateOrderItemRequest {
 export interface CreateOrderRequest {
   items: CreateOrderItemRequest[];
   deliveryAddress: string;
-  deliveryTime?: string;  // ISO string
+  deliveryTime?: string;  
   comment?: string;
 }

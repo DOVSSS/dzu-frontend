@@ -1,23 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  Alert, ActivityIndicator, Image, Dimensions,
+  Alert, ActivityIndicator, Image, Dimensions, ScrollView,
 } from 'react-native';
-import type { Restaurant, Product } from '../types/api.types';
+import type { Restaurant, Product, Category } from '../types/api.types';
 import { createOrder } from '../services/orderService';
+import { getRestaurantById } from '../services/restaurantService';
+import { getSettings, Settings } from '../services/settingsService';
 import { COLORS } from '../constants/theme';
 import { API_URL } from '../constants/storageKeys';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - 12) / 2;
 
 type Props = { route: { params: { restaurant: Restaurant } } };
 
 export default function RestaurantScreen({ route }: Props) {
-  const { restaurant } = route.params;
-  const products = restaurant.products ?? [];
+  const restaurant = route?.params?.restaurant;
+  const [restaurantData, setRestaurantData] = useState<Restaurant | null>(restaurant ?? null);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [isOrdering, setIsOrdering] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [settings, setSettings] = useState<Settings>({ deliveryFee: 150, serviceFee: 50 });
+
+  useEffect(() => {
+    if (!restaurant?.id) { setLoading(false); return; }
+    Promise.all([
+      getRestaurantById(restaurant.id),
+      getSettings(),
+    ]).then(([data, s]) => {
+      setRestaurantData(data);
+      setSettings(s);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const products = restaurantData?.products ?? [];
+
+  const categories = useMemo(() => {
+    const map = new Map<string, Category>();
+    products.forEach(p => {
+      if (p.category && p.categoryId) {
+        map.set(p.categoryId, p.category);
+      }
+    });
+    return Array.from(map.values());
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    if (!selectedCategory) return products;
+    return products.filter(p => p.categoryId === selectedCategory);
+  }, [products, selectedCategory]);
 
   const addToCart = (id: string) => setCart(prev => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
   const removeFromCart = (id: string) => setCart(prev => {
@@ -27,10 +59,11 @@ export default function RestaurantScreen({ route }: Props) {
 
   const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ productId, quantity }));
   const totalCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = cartItems.reduce((sum, { productId, quantity }) => {
+  const subtotal = cartItems.reduce((sum, { productId, quantity }) => {
     const p = products.find(p => p.id === productId);
     return sum + (p?.price ?? 0) * quantity;
   }, 0);
+  const totalPrice = subtotal + settings.deliveryFee + settings.serviceFee;
 
   const handleOrder = async () => {
     if (!cartItems.length) return;
@@ -50,58 +83,109 @@ export default function RestaurantScreen({ route }: Props) {
   const renderProduct = ({ item }: { item: Product }) => {
     const qty = cart[item.id] ?? 0;
     return (
-      <View style={[styles.card, { width: CARD_WIDTH }]}>
-        <Image
-          source={{ uri: `${API_URL}${item.image}` }}
-          style={styles.productImage}
-        />
-        {qty > 0 && (
-          <View style={styles.qtyBadge}>
-            <Text style={styles.qtyBadgeText}>{qty}</Text>
+      <View style={styles.card}>
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: `${API_URL}${item.image}` }}
+            style={styles.productImage}
+            resizeMode="contain"
+          />
+          <View style={styles.priceBadge}>
+            <Text style={styles.priceBadgeText}>{item.price} ₽</Text>
           </View>
-        )}
-        <View style={styles.cardBody}>
-          <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-          <Text style={styles.productDescription} numberOfLines={2}>{item.description}</Text>
-          <View style={styles.cardFooter}>
-            <Text style={styles.productPrice}>{item.price} ₽</Text>
-            <View style={styles.controls}>
-              {qty > 0 && (
+          <View style={styles.controlsOverlay}>
+            {qty > 0 && (
+              <>
                 <TouchableOpacity style={styles.controlBtn} onPress={() => removeFromCart(item.id)}>
                   <Text style={styles.controlText}>−</Text>
                 </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.controlBtn, styles.controlBtnPrimary]}
-                onPress={() => addToCart(item.id)}
-              >
-                <Text style={[styles.controlText, { color: '#fff' }]}>+</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.qtyBadge}>
+                  <Text style={styles.qtyBadgeText}>{qty}</Text>
+                </View>
+              </>
+            )}
+            <TouchableOpacity
+              style={[styles.controlBtn, styles.controlBtnPrimary]}
+              onPress={() => addToCart(item.id)}
+            >
+              <Text style={[styles.controlText, { color: '#fff' }]}>+</Text>
+            </TouchableOpacity>
           </View>
+        </View>
+        <View style={styles.cardBody}>
+          <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+          {item.description ? (
+            <Text style={styles.productDescription} numberOfLines={1}>{item.description}</Text>
+          ) : null}
         </View>
       </View>
     );
   };
 
+  if (loading) return (
+    <View style={styles.centered}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+    </View>
+  );
+
+  if (!restaurantData) return (
+    <View style={styles.centered}>
+      <Text style={{ color: COLORS.textSecondary }}>Ресторан не найден</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={products}
+        data={filteredProducts}
         keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <Text style={styles.header}>{restaurant.name}</Text>
-            <Text style={styles.subheader}>{products.length} позиций в меню</Text>
+          <View>
+            <View style={styles.listHeader}>
+              <Text style={styles.header}>{restaurantData.name}</Text>
+              <Text style={styles.subheader}>{products.length} позиций в меню</Text>
+            </View>
+
+            {categories.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoriesScroll}
+                contentContainerStyle={styles.categoriesContent}
+              >
+                <TouchableOpacity
+                  style={[styles.chip, !selectedCategory && styles.chipActive]}
+                  onPress={() => setSelectedCategory(null)}
+                >
+                  <Text style={[styles.chipText, !selectedCategory && styles.chipTextActive]}>
+                    Все
+                  </Text>
+                </TouchableOpacity>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.chip, selectedCategory === cat.id && styles.chipActive]}
+                    onPress={() => setSelectedCategory(
+                      selectedCategory === cat.id ? null : cat.id
+                    )}
+                  >
+                    <Text style={styles.chipEmoji}>{cat.emoji}</Text>
+                    <Text style={[styles.chipText, selectedCategory === cat.id && styles.chipTextActive]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </View>
         }
         ListEmptyComponent={
           <View style={styles.centered}>
             <Text style={styles.emptyIcon}>🍽️</Text>
-            <Text style={styles.emptyText}>Меню пусто</Text>
+            <Text style={styles.emptyText}>
+              {selectedCategory ? 'Нет блюд в этой категории' : 'Меню пусто'}
+            </Text>
           </View>
         }
         renderItem={renderProduct}
@@ -109,11 +193,23 @@ export default function RestaurantScreen({ route }: Props) {
 
       {totalCount > 0 && (
         <View style={styles.cartBar}>
-          <View style={styles.cartInfo}>
-            <View style={styles.cartCountBadge}>
-              <Text style={styles.cartCountText}>{totalCount}</Text>
+          <View style={styles.cartDetails}>
+            <View style={styles.cartRow}>
+              <Text style={styles.cartLabel}>Блюда ({totalCount})</Text>
+              <Text style={styles.cartValue}>{subtotal} ₽</Text>
             </View>
-            <Text style={styles.cartTotal}>{totalPrice} ₽</Text>
+            <View style={styles.cartRow}>
+              <Text style={styles.cartLabel}>Доставка</Text>
+              <Text style={styles.cartValue}>{settings.deliveryFee} ₽</Text>
+            </View>
+            <View style={styles.cartRow}>
+              <Text style={styles.cartLabel}>Сервисный сбор</Text>
+              <Text style={styles.cartValue}>{settings.serviceFee} ₽</Text>
+            </View>
+            <View style={[styles.cartRow, styles.cartTotalRow]}>
+              <Text style={styles.cartTotalLabel}>Итого</Text>
+              <Text style={styles.cartTotalValue}>{totalPrice} ₽</Text>
+            </View>
           </View>
           <TouchableOpacity
             style={[styles.orderButton, isOrdering && styles.orderButtonDisabled]}
@@ -122,7 +218,7 @@ export default function RestaurantScreen({ route }: Props) {
           >
             {isOrdering
               ? <ActivityIndicator color={COLORS.text} size="small" />
-              : <Text style={styles.orderButtonText}>Оформить заказ</Text>
+              : <Text style={styles.orderButtonText}>Оформить заказ · 20-60 мин</Text>
             }
           </TouchableOpacity>
         </View>
@@ -133,39 +229,73 @@ export default function RestaurantScreen({ route }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  list: { padding: 16, paddingBottom: 110 },
-  row: { gap: 12, marginBottom: 12 },
-  centered: { alignItems: 'center', paddingTop: 60 },
-  listHeader: { marginBottom: 16 },
+  list: { padding: 16, paddingBottom: 220 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listHeader: { marginBottom: 12 },
   header: { fontSize: 22, fontWeight: '700', color: COLORS.text },
   subheader: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
 
+  categoriesScroll: { marginBottom: 16 },
+  categoriesContent: { gap: 8, paddingRight: 16 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  chipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+  chipEmoji: { fontSize: 14 },
+  chipText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  chipTextActive: { color: COLORS.primary, fontWeight: '600' },
+
   card: {
-    backgroundColor: COLORS.card, borderRadius: 16, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  productImage: { width: '100%', height: CARD_WIDTH * 0.75, backgroundColor: COLORS.border },
+  imageContainer: {
+    width: '100%',
+    backgroundColor: '#f8f8f8',
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: SCREEN_WIDTH - 32,
+    backgroundColor: '#f8f8f8',
+  },
+  priceBadge: {
+    position: 'absolute', bottom: 10, left: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  priceBadgeText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  controlsOverlay: {
+    position: 'absolute', bottom: 10, right: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
   qtyBadge: {
-    position: 'absolute', top: 8, right: 8,
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    minWidth: 28, height: 28, borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 6,
   },
-  qtyBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  cardBody: { padding: 10, gap: 3 },
-  productName: { fontSize: 13, fontWeight: '600', color: COLORS.text },
-  productDescription: { fontSize: 11, color: COLORS.textMuted, lineHeight: 16 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  productPrice: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
-  controls: { flexDirection: 'row', gap: 6 },
+  qtyBadgeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  cardBody: { padding: 10, gap: 2 },
+  productName: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  productDescription: { fontSize: 12, color: COLORS.textMuted },
   controlBtn: {
-    width: 28, height: 28, borderRadius: 8,
-    backgroundColor: COLORS.border,
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center', alignItems: 'center',
   },
   controlBtnPrimary: { backgroundColor: COLORS.primary },
-  controlText: { fontSize: 16, fontWeight: '700', color: COLORS.text, lineHeight: 18 },
+  controlText: { fontSize: 18, fontWeight: '700', color: '#fff', lineHeight: 20 },
 
   emptyIcon: { fontSize: 48, marginBottom: 8 },
   emptyText: { fontSize: 16, color: COLORS.textSecondary },
@@ -173,21 +303,22 @@ const styles = StyleSheet.create({
   cartBar: {
     position: 'absolute', bottom: 24, left: 16, right: 16,
     backgroundColor: COLORS.text, borderRadius: 20, padding: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2, shadowRadius: 16, elevation: 8,
   },
-  cartInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cartCountBadge: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center',
+  cartDetails: { marginBottom: 12 },
+  cartRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  cartLabel: { color: '#94a3b8', fontSize: 13 },
+  cartValue: { color: '#fff', fontSize: 13 },
+  cartTotalRow: {
+    marginTop: 8, paddingTop: 8,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)',
   },
-  cartCountText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  cartTotal: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  cartTotalLabel: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  cartTotalValue: { color: '#fff', fontSize: 15, fontWeight: '700' },
   orderButton: {
     backgroundColor: '#fff', borderRadius: 12,
-    paddingVertical: 10, paddingHorizontal: 18,
+    paddingVertical: 12, alignItems: 'center',
   },
   orderButtonDisabled: { opacity: 0.6 },
   orderButtonText: { color: COLORS.text, fontWeight: '700', fontSize: 15 },

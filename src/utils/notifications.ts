@@ -17,7 +17,6 @@ Notifications.setNotificationHandler({
 export async function registerForPushNotifications(): Promise<string | null> {
   // На симуляторе/эмуляторе push не работает
   if (!Device.isDevice) {
-    console.log('Push уведомления работают только на реальном устройстве');
     return null;
   }
 
@@ -31,14 +30,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   if (finalStatus !== 'granted') {
-    console.log('Разрешение на уведомления не получено');
     return null;
   }
 
   // Получаем токен
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-  console.log('Expo Push Token:', token);
 
   // На Android нужен канал уведомлений
   if (Platform.OS === 'android') {
