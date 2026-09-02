@@ -17,7 +17,7 @@ export default function HomeScreen({ navigation }: any) {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { logout } = useAuth();
+  const { logout, requireAuth } = useAuth();
 
   useEffect(() => { loadRestaurants(); }, []);
 
@@ -57,14 +57,14 @@ export default function HomeScreen({ navigation }: any) {
 <View style={styles.header}>
   <TouchableOpacity
     style={styles.profileBtn}
-    onPress={() => navigation.navigate('Profile')}
+   onPress={() => requireAuth(() => navigation.navigate('Profile'))}
   >
     <Text style={styles.profileBtnText}>👤 Профиль</Text>
   </TouchableOpacity>
 
   <TouchableOpacity
     style={styles.ordersBtn}
-    onPress={() => navigation.navigate('Orders')}
+   onPress={() => requireAuth(() => navigation.navigate('Orders'))}
   >
     <Text style={styles.ordersBtnText}>📦 Заказы</Text>
   </TouchableOpacity>

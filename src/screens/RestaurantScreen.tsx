@@ -9,13 +9,14 @@ import { getRestaurantById } from '../services/restaurantService';
 import { getSettings, Settings } from '../services/settingsService';
 import { COLORS } from '../constants/theme';
 import { API_URL } from '../constants/storageKeys';
-
+import { useAuth } from '../context/AuthContext';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 type Props = { route: { params: { restaurant: Restaurant } } };
 
 export default function RestaurantScreen({ route }: Props) {
   const restaurant = route?.params?.restaurant;
+  const { requireAuth } = useAuth();
   const [restaurantData, setRestaurantData] = useState<Restaurant | null>(restaurant ?? null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -213,7 +214,7 @@ export default function RestaurantScreen({ route }: Props) {
           </View>
           <TouchableOpacity
             style={[styles.orderButton, isOrdering && styles.orderButtonDisabled]}
-            onPress={handleOrder}
+            onPress={() => requireAuth(handleOrder)}
             disabled={isOrdering}
           >
             {isOrdering

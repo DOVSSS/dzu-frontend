@@ -7,11 +7,37 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/theme';
 
 export default function ProfileScreen({ navigation }: any) {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser,deleteAccount } = useAuth();
   const [name, setName] = useState(user?.name ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [address, setAddress] = useState(user?.address ?? '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+const handleDeleteAccount = () => {
+  Alert.alert(
+    'Удалить аккаунт?',
+    'Это действие необратимо. Все ваши данные профиля будут удалены.',
+    [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setIsDeleting(true);
+            await deleteAccount();
+          } catch (e: any) {
+            Alert.alert('Ошибка', 'Не удалось удалить аккаунт');
+            setIsDeleting(false);
+          }
+        },
+      },
+    ]
+  );
+};
+
+
 
   const handleSave = async () => {
     if (!address.trim()) {
@@ -73,6 +99,18 @@ export default function ProfileScreen({ navigation }: any) {
           : <Text style={styles.btnText}>Сохранить</Text>
         }
       </TouchableOpacity>
+
+
+      <TouchableOpacity
+  style={styles.deleteBtn}
+  onPress={handleDeleteAccount}
+  disabled={isDeleting}
+>
+  {isDeleting
+    ? <ActivityIndicator color={COLORS.error} />
+    : <Text style={styles.deleteBtnText}>Удалить аккаунт</Text>
+  }
+</TouchableOpacity>
     </ScrollView>
   );
 }
@@ -91,6 +129,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center', marginTop: 24,
   },
+
+  deleteBtn: {
+  marginTop: 16, paddingVertical: 14, alignItems: 'center',
+  borderRadius: 12, borderWidth: 1, borderColor: COLORS.error,
+},
+deleteBtnText: { color: COLORS.error, fontWeight: '700', fontSize: 15 },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

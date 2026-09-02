@@ -1,14 +1,20 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
-import AuthStack from './AuthStack';
 import AppStack from './AppStack';
+import AuthStack from './AuthStack';
+
+export type RootStackParamList = {
+  Main: undefined;
+  Auth: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { token, isLoading } = useAuth();
+  const { isLoading } = useAuth();
 
-  // Пока проверяем AsyncStorage — показываем сплэш
-  // Это предотвращает "мигание" между стеками при старте
   if (isLoading) {
     return (
       <View style={styles.splash}>
@@ -17,8 +23,18 @@ export default function RootNavigator() {
     );
   }
 
-  // Переключение стеков — единственная логика здесь
-  return token ? <AppStack /> : <AuthStack />;
+  // AppStack теперь всегда виден — гостю не нужен логин для просмотра.
+  // AuthStack открывается модально поверх него по требованию (см. requireAuth).
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Main" component={AppStack} />
+      <Stack.Screen
+        name="Auth"
+        component={AuthStack}
+        options={{ presentation: 'modal' }}
+      />
+    </Stack.Navigator>
+  );
 }
 
 const styles = StyleSheet.create({
