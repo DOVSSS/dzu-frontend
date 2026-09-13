@@ -10,6 +10,8 @@ export type CreateOrderPayload = {
   items: CartItem[];
   deliveryAddress?: string;
   comment?: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
 };
 
 export type OrderItem = {

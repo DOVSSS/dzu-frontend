@@ -97,13 +97,22 @@ export default function HomeScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Restaurant', { restaurant: item })}
             activeOpacity={0.85}
           >
-            <Image
-              source={{ uri: `${API_URL}${item.image}` }}
-              style={styles.cardImage}
-            />
-            {/* Бейдж количества блюд */}
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{item.products?.length ?? 0} блюд</Text>
+            <View style={styles.cardImageWrapper}>
+              <Image
+                source={{ uri: `${API_URL}${item.image}` }}
+                style={[styles.cardImage, item.isOpen === false && styles.cardImageClosed]}
+              />
+              {item.isOpen === false && (
+                <View style={styles.closedOverlay} />
+              )}
+              {item.isOpen === false && (
+                <View style={styles.closedBadge}>
+                  <Text style={styles.closedBadgeText}>Закрыто</Text>
+                </View>
+              )}
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{item.products?.length ?? 0} блюд</Text>
+              </View>
             </View>
             <View style={styles.cardBody}>
               <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
@@ -147,7 +156,19 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
+  cardImageWrapper: { position: 'relative' },
   cardImage: { width: '100%', height: CARD_WIDTH * 0.75, backgroundColor: COLORS.border },
+  cardImageClosed: { opacity: 0.5 },
+  closedOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  closedBadge: {
+    position: 'absolute', top: 8, left: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+  },
+  closedBadgeText: { color: '#ffcccc', fontSize: 11, fontWeight: '700' },
   countBadge: {
     position: 'absolute', top: 8, right: 8,
     backgroundColor: 'rgba(0,0,0,0.5)',

@@ -10,6 +10,7 @@ import { getSettings, Settings } from '../services/settingsService';
 import { COLORS } from '../constants/theme';
 import { API_URL } from '../constants/storageKeys';
 import { useAuth } from '../context/AuthContext';
+import * as Location from 'expo-location';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 type Props = { route: { params: { restaurant: Restaurant } } };
@@ -65,12 +66,36 @@ export default function RestaurantScreen({ route }: Props) {
     return sum + (p?.price ?? 0) * quantity;
   }, 0);
   const totalPrice = subtotal + settings.deliveryFee + settings.serviceFee;
+  const isOpen = restaurantData?.isOpen !== false;
 
   const handleOrder = async () => {
+    if (!isOpen) {
+      Alert.alert('Ресторан закрыт', 'Сейчас нельзя оформить заказ — ресторан не работает.');
+      return;
+    }
     if (!cartItems.length) return;
     setIsOrdering(true);
     try {
-      const order = await createOrder({ items: cartItems });
+      let deliveryLat: number | undefined;
+      let deliveryLng: number | undefined;
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        try {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          deliveryLat = location.coords.latitude;
+          deliveryLng = location.coords.longitude;
+        } catch {
+          // GPS timeout/error — continue without coordinates
+        }
+      }
+
+      const order = await createOrder({
+        items: cartItems,
+        ...(deliveryLat != null && deliveryLng != null ? { deliveryLat, deliveryLng } : {}),
+      });
       setCart({});
       Alert.alert('✅ Заказ оформлен!', `Номер заказа: #${order.reference}`);
     } catch (e: any) {
@@ -148,6 +173,17 @@ export default function RestaurantScreen({ route }: Props) {
               <Text style={styles.subheader}>{products.length} позиций в меню</Text>
             </View>
 
+            {!isOpen && (
+              <View style={styles.closedBanner}>
+                <Text style={styles.closedBannerTitle}>Ресторан закрыт</Text>
+                {restaurantData.openTime ? (
+                  <Text style={styles.closedBannerSubtitle}>
+                    Откроется в {restaurantData.openTime}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
             {categories.length > 0 && (
               <ScrollView
                 horizontal
@@ -213,13 +249,15 @@ export default function RestaurantScreen({ route }: Props) {
             </View>
           </View>
           <TouchableOpacity
-            style={[styles.orderButton, isOrdering && styles.orderButtonDisabled]}
+            style={[styles.orderButton, (isOrdering || !isOpen) && styles.orderButtonDisabled]}
             onPress={() => requireAuth(handleOrder)}
-            disabled={isOrdering}
+            disabled={isOrdering || !isOpen}
           >
             {isOrdering
               ? <ActivityIndicator color={COLORS.text} size="small" />
-              : <Text style={styles.orderButtonText}>Оформить заказ · 20-60 мин</Text>
+              : <Text style={styles.orderButtonText}>
+                  {isOpen ? 'Оформить заказ · 20-60 мин' : 'Ресторан закрыт'}
+                </Text>
             }
           </TouchableOpacity>
         </View>
@@ -235,6 +273,16 @@ const styles = StyleSheet.create({
   listHeader: { marginBottom: 12 },
   header: { fontSize: 22, fontWeight: '700', color: COLORS.text },
   subheader: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  closedBanner: {
+    backgroundColor: '#fff3e0',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#ffcc80',
+  },
+  closedBannerTitle: { fontSize: 15, fontWeight: '700', color: '#e65100' },
+  closedBannerSubtitle: { fontSize: 13, color: '#bf360c', marginTop: 4 },
 
   categoriesScroll: { marginBottom: 16 },
   categoriesContent: { gap: 8, paddingRight: 16 },

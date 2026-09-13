@@ -19,7 +19,7 @@ const handleDeleteAccount = () => {
     'Удалить аккаунт?',
     'Это действие необратимо. Все ваши данные профиля будут удалены.',
     [
-      { text: 'Отмена', style: 'cancel' },
+      { text: 'Отмена.', style: 'cancel' },
       {
         text: 'Удалить',
         style: 'destructive',
@@ -27,8 +27,14 @@ const handleDeleteAccount = () => {
           try {
             setIsDeleting(true);
             await deleteAccount();
+            Alert.alert(
+              'Учётные данные удалены',
+              'Ваш аккаунт был успешно удалён.',
+              [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+            );
           } catch (e: any) {
-            Alert.alert('Ошибка', 'Не удалось удалить аккаунт');
+            console.log('DELETE ACCOUNT ERROR:', JSON.stringify(e?.response?.data ?? e?.message, null, 2));
+            Alert.alert('Ошибка', e?.response?.data?.message ?? 'Не удалось удалить аккаунт');
             setIsDeleting(false);
           }
         },

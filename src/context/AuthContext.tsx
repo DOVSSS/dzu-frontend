@@ -11,7 +11,7 @@ import { loginRequest, registerRequest } from '../services/authService';
 import { TokenManager } from '../services/tokenManager';
 import { registerForPushNotifications } from '../utils/notifications';
 import api from '../services/api';
-import { openAuthModal } from '../navigation/rootNavigation';
+import { closeAuthModal, openAuthModal } from '../navigation/rootNavigation';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await TokenManager.setUser(data.user);
     setToken(data.accessToken);
     setUser(data.user);
+    closeAuthModal();
 
     const pushToken = await registerForPushNotifications();
     if (pushToken) {

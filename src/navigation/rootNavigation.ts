@@ -8,3 +8,9 @@ export function openAuthModal() {
     navigationRef.navigate('Auth');
   }
 }
+
+export function closeAuthModal() {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('Main');
+  }
+}

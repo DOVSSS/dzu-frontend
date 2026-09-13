@@ -20,6 +20,9 @@ export interface Restaurant {
   image: string;
   createdAt: string;
   updatedAt: string;
+  openTime?: string | null;
+  closeTime?: string | null;
+  isOpen?: boolean;
    products: Product[];
 }
 
@@ -111,4 +114,6 @@ export interface CreateOrderRequest {
   deliveryAddress: string;
   deliveryTime?: string;  
   comment?: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
 }
