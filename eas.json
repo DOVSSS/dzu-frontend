@@ -25,6 +25,11 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6793251982",
+        "bundleIdentifier": "dzu"
+      }
+    }
   }
 }
