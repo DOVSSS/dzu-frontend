@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/theme';
 
 export default function ProfileScreen({ navigation }: any) {
-  const { user, updateUser,deleteAccount } = useAuth();
+  const { user, updateUser, deleteAccount, logout } = useAuth();
   const [name, setName] = useState(user?.name ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [address, setAddress] = useState(user?.address ?? '');
@@ -33,7 +33,9 @@ const handleDeleteAccount = () => {
               [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
             );
           } catch (e: any) {
-            console.log('DELETE ACCOUNT ERROR:', JSON.stringify(e?.response?.data ?? e?.message, null, 2));
+            if (__DEV__) {
+              console.log('DELETE ACCOUNT ERROR:', JSON.stringify(e?.response?.data ?? e?.message, null, 2));
+            }
             Alert.alert('Ошибка', e?.response?.data?.message ?? 'Не удалось удалить аккаунт');
             setIsDeleting(false);
           }
@@ -107,16 +109,20 @@ const handleDeleteAccount = () => {
       </TouchableOpacity>
 
 
+      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <Text style={styles.logoutBtnText}>Выйти</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
-  style={styles.deleteBtn}
-  onPress={handleDeleteAccount}
-  disabled={isDeleting}
->
-  {isDeleting
-    ? <ActivityIndicator color={COLORS.error} />
-    : <Text style={styles.deleteBtnText}>Удалить аккаунт</Text>
-  }
-</TouchableOpacity>
+        style={styles.deleteBtn}
+        onPress={handleDeleteAccount}
+        disabled={isDeleting}
+      >
+        {isDeleting
+          ? <ActivityIndicator color={COLORS.error} />
+          : <Text style={styles.deleteBtnText}>Удалить аккаунт</Text>
+        }
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -136,11 +142,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center', marginTop: 24,
   },
 
+  logoutBtn: {
+    marginTop: 16, paddingVertical: 14, alignItems: 'center',
+    borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+  },
+  logoutBtnText: { color: COLORS.textSecondary, fontWeight: '600', fontSize: 15 },
   deleteBtn: {
-  marginTop: 16, paddingVertical: 14, alignItems: 'center',
-  borderRadius: 12, borderWidth: 1, borderColor: COLORS.error,
-},
-deleteBtnText: { color: COLORS.error, fontWeight: '700', fontSize: 15 },
+    marginTop: 12, paddingVertical: 14, alignItems: 'center',
+    borderRadius: 12, borderWidth: 1, borderColor: COLORS.error,
+  },
+  deleteBtnText: { color: COLORS.error, fontWeight: '700', fontSize: 15 },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

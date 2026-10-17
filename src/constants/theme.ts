@@ -1,12 +1,14 @@
 export const COLORS = {
   primary: '#FF6B35',
   primaryLight: '#FFF0EB',
-  background: '#F8F9FA',
+  /** Warm off-white — pairs with primary orange */
+  background: '#FFF5F0',
   card: '#FFFFFF',
   text: '#1A1A2E',
   textSecondary: '#6B7280',
   textMuted: '#9CA3AF',
-  border: '#F0F0F0',
+  border: '#FFE4D6',
+  imagePlaceholder: '#FFEDE6',
   success: '#10B981',
   successLight: '#ECFDF5',
   warning: '#F59E0B',
