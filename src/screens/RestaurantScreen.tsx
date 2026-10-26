@@ -21,7 +21,7 @@ const CARD_WIDTH = (SCREEN_WIDTH - LIST_PADDING * 2 - COLUMN_GAP) / 2;
 const PRODUCT_IMAGE_HEIGHT = CARD_WIDTH;
 const PRODUCT_THUMB_WIDTH = Math.ceil(CARD_WIDTH * 2);
 
-const DEFAULT_SETTINGS: Settings = { deliveryFee: 150, serviceFee: 50 };
+const DEFAULT_SETTINGS: Settings = { deliveryFee: 150, serviceFee: 50, taxiFee: 200 };
 
 const compareByName = (a: Product, b: Product) =>
   a.name.localeCompare(b.name, 'ru');

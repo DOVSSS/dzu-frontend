@@ -20,7 +20,6 @@ const CARD_WIDTH = SCREEN_WIDTH - LIST_PADDING * 2;
 const CARD_IMAGE_HEIGHT = CARD_WIDTH / 2.8;
 /** ~2× card width for retina thumbnails */
 const RESTAURANT_THUMB_WIDTH = Math.ceil(CARD_WIDTH * 2);
-
 type RestaurantCardProps = {
   item: RestaurantCatalogItem;
   cardWidth: number;
@@ -65,7 +64,6 @@ const RestaurantCard = memo(function RestaurantCard({
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.cardSlug} numberOfLines={1}>/{item.slug}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -234,7 +232,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   taxiBtnText: { fontSize: 20 },
-
   list: { padding: LIST_PADDING, paddingBottom: 32 },
   sectionTitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 14 },
 
@@ -265,8 +262,6 @@ const styles = StyleSheet.create({
   countBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   cardBody: { padding: 10, gap: 2 },
   cardTitle: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  cardSlug: { fontSize: 11, color: COLORS.textMuted },
-
   emptyIcon: { fontSize: 48, marginBottom: 8 },
   emptyText: { fontSize: 16, color: COLORS.textSecondary },
   errorText: { color: COLORS.error },

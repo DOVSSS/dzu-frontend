@@ -8,6 +8,9 @@ type AxiosLikeError = {
 };
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (!error) {
+    return fallback;
+  }
   const err = error as AxiosLikeError;
   const status = err.response?.status;
   const serverMessage = err.response?.data?.message;

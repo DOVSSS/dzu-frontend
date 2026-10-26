@@ -11,7 +11,7 @@ import { getSettings, Settings } from '../services/settingsService';
 import { COLORS } from '../constants/theme';
 import { queryKeys } from '../query/keys';
 
-const DEFAULT_SETTINGS: Settings = { deliveryFee: 150, serviceFee: 50 };
+const DEFAULT_SETTINGS: Settings = { deliveryFee: 150, serviceFee: 50, taxiFee: 200 };
 
 export default function TaxiOrderScreen({ navigation }: { navigation: { goBack: () => void } }) {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ export default function TaxiOrderScreen({ navigation }: { navigation: { goBack: 
     }
   }, [user?.address, pickupAddress]);
 
-  const tripPrice = settings.deliveryFee + settings.serviceFee;
+  const tripPrice = settings.taxiFee ?? DEFAULT_SETTINGS.taxiFee;
 
   const handleOrder = async () => {
     if (!pickupAddress.trim()) {
@@ -86,7 +86,7 @@ export default function TaxiOrderScreen({ navigation }: { navigation: { goBack: 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.lead}>
-        Укажите откуда и куда поедете. Стоимость поездки рассчитывается как доставка еды.
+        Укажите откуда и куда поедете.
       </Text>
 
       <Text style={styles.label}>Адрес подачи (откуда)</Text>
@@ -113,9 +113,6 @@ export default function TaxiOrderScreen({ navigation }: { navigation: { goBack: 
         <Text style={styles.priceLabel}>Стоимость поездки</Text>
         <Text style={styles.priceValue}>{tripPrice} ₽</Text>
       </View>
-      <Text style={styles.priceHint}>
-        Доставка {settings.deliveryFee} ₽ + сервис {settings.serviceFee} ₽
-      </Text>
 
       <Text style={styles.label}>Комментарий (необязательно)</Text>
       <TextInput
@@ -159,7 +156,6 @@ const styles = StyleSheet.create({
   },
   priceLabel: { fontSize: 15, fontWeight: '600', color: COLORS.text },
   priceValue: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
-  priceHint: { fontSize: 12, color: COLORS.textMuted, marginTop: 6 },
   btn: {
     backgroundColor: COLORS.primary, borderRadius: 12,
     paddingVertical: 16, alignItems: 'center', marginTop: 24,

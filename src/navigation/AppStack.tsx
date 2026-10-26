@@ -5,6 +5,7 @@ import RestaurantScreen from '../screens/RestaurantScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import TaxiOrderScreen from '../screens/TaxiOrderScreen';
+import ContactButtons from '../components/ContactButtons';
 import { COLORS } from '../constants/theme';
 
 export type AppStackParamList = {
@@ -29,7 +30,11 @@ export default function AppStack() {
         contentStyle: { backgroundColor: COLORS.background },
       }}
     >
-      <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Рестораны' }} />
+      <Stack.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ title: 'Рестораны', headerRight: () => <ContactButtons /> }}
+      />
       <Stack.Screen
         name="Restaurant"
         component={RestaurantScreen}

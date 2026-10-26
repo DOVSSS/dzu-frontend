@@ -20,6 +20,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.butu.frontend",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
@@ -51,7 +52,18 @@
           "locationAlwaysAndWhenInUsePermission": "Мы используем ваши координаты только в момент оформления заказа, чтобы передать курьеру точное место доставки на карте — например, если вы заказываете со двора или парка, где сложно определить адрес текстом, курьер увидит точку на карте и быстрее вас найдёт."
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
+      "expo-font"
     ]
   }
 }
