@@ -2,9 +2,10 @@ import React, { useState, useMemo, useCallback, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   View, Text, SectionList, StyleSheet, TouchableOpacity,
-  Alert, ActivityIndicator, Dimensions, ScrollView,
+  Alert, ActivityIndicator, Dimensions, ScrollView, Pressable, LayoutChangeEvent,
 } from 'react-native';
 import CachedRemoteImage from '../components/CachedRemoteImage';
+import ImageViewerModal from '../components/ImageViewerModal';
 import type { Product, Category } from '../types/api.types';
 import { createOrder } from '../services/orderService';
 import { getRestaurantById } from '../services/restaurantService';
@@ -17,9 +18,23 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const LIST_PADDING = 16;
 const COLUMN_GAP = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - LIST_PADDING * 2 - COLUMN_GAP) / 2;
-/** Menu grid: square-ish preview (1:1) */
-const PRODUCT_IMAGE_HEIGHT = CARD_WIDTH;
+const LIST_PADDING_TOP = 12;
+const ROW_GAP = 12;
+const SECTION_HEADER_HEIGHT = 40;
+const CARD_BODY_HEIGHT = 66;
+const VISIBLE_ROWS = 2;
+const MIN_IMAGE_HEIGHT = Math.round(CARD_WIDTH * 0.8);
+const MAX_IMAGE_HEIGHT = Math.round(CARD_WIDTH * 1.7);
 const PRODUCT_THUMB_WIDTH = Math.ceil(CARD_WIDTH * 2);
+
+/** Image height so that VISIBLE_ROWS rows (2×2 = 4 cards) fill the visible list area. */
+function computeImageHeight(listHeight: number): number {
+  if (listHeight <= 0) return MIN_IMAGE_HEIGHT;
+  const available = listHeight - LIST_PADDING_TOP - SECTION_HEADER_HEIGHT - ROW_GAP * VISIBLE_ROWS;
+  const cardHeight = available / VISIBLE_ROWS;
+  const imageHeight = Math.floor(cardHeight - CARD_BODY_HEIGHT);
+  return Math.min(MAX_IMAGE_HEIGHT, Math.max(MIN_IMAGE_HEIGHT, imageHeight));
+}
 
 const DEFAULT_SETTINGS: Settings = { deliveryFee: 150, serviceFee: 50, taxiFee: 200 };
 
@@ -59,37 +74,47 @@ type Props = { route: { params: { restaurantId: string; name: string } } };
 type ProductRowProps = {
   item: Product;
   cardWidth: number;
+  imageHeight: number;
   qty: number;
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
+  onImagePress: (item: Product) => void;
 };
 
 const ProductRow = memo(function ProductRow({
   item,
   cardWidth,
+  imageHeight,
   qty,
   onAdd,
   onRemove,
+  onImagePress,
 }: ProductRowProps) {
   const unavailable = item.isAvailable === false;
 
   return (
     <View style={[styles.card, { width: cardWidth }, unavailable && styles.cardUnavailable]}>
-      <View style={styles.imageContainer}>
-        <CachedRemoteImage
-          path={item.image}
-          width={PRODUCT_THUMB_WIDTH}
-          quality={85}
-          style={[styles.productImage, unavailable && styles.productImageDimmed]}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          transition={200}
-        />
+      <View style={[styles.imageContainer, { height: imageHeight }]}>
+        <Pressable onPress={() => onImagePress(item)} disabled={!item.image}>
+          <CachedRemoteImage
+            path={item.image}
+            width={PRODUCT_THUMB_WIDTH}
+            quality={85}
+            style={[
+              styles.productImage,
+              { height: imageHeight },
+              unavailable && styles.productImageDimmed,
+            ]}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={200}
+          />
+        </Pressable>
         <View style={styles.priceBadge}>
           <Text style={styles.priceBadgeText}>{item.price} ₽</Text>
         </View>
         {unavailable && qty === 0 ? (
-          <View style={styles.unavailableOverlay}>
+          <View style={styles.unavailableOverlay} pointerEvents="none">
             <Text style={styles.unavailableOverlayText}>Временно недоступно</Text>
           </View>
         ) : (
@@ -122,7 +147,7 @@ const ProductRow = memo(function ProductRow({
         {unavailable ? (
           <Text style={styles.unavailableCaption}>Временно недоступно</Text>
         ) : item.description ? (
-          <Text style={styles.productDescription}>{item.description}</Text>
+          <Text style={styles.productDescription} numberOfLines={2}>{item.description}</Text>
         ) : null}
       </View>
     </View>
@@ -132,34 +157,42 @@ const ProductRow = memo(function ProductRow({
 type ProductGridRowProps = {
   pair: ProductPair;
   cardWidth: number;
+  imageHeight: number;
   cart: Record<string, number>;
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
+  onImagePress: (item: Product) => void;
 };
 
 const ProductGridRow = memo(function ProductGridRow({
   pair,
   cardWidth,
+  imageHeight,
   cart,
   onAdd,
   onRemove,
+  onImagePress,
 }: ProductGridRowProps) {
   return (
     <View style={styles.productGridRow}>
       <ProductRow
         item={pair.left}
         cardWidth={cardWidth}
+        imageHeight={imageHeight}
         qty={cart[pair.left.id] ?? 0}
         onAdd={onAdd}
         onRemove={onRemove}
+        onImagePress={onImagePress}
       />
       {pair.right ? (
         <ProductRow
           item={pair.right}
           cardWidth={cardWidth}
+          imageHeight={imageHeight}
           qty={cart[pair.right.id] ?? 0}
           onAdd={onAdd}
           onRemove={onRemove}
+          onImagePress={onImagePress}
         />
       ) : (
         <View style={{ width: cardWidth }} />
@@ -175,6 +208,18 @@ export default function RestaurantScreen({ route }: Props) {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [isOrdering, setIsOrdering] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [listHeight, setListHeight] = useState(0);
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
+
+  const imageHeight = useMemo(() => computeImageHeight(listHeight), [listHeight]);
+
+  const handleListLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    setListHeight(prev => (prev === h ? prev : h));
+  }, []);
+
+  const openPreview = useCallback((item: Product) => setPreviewProduct(item), []);
+  const closePreview = useCallback(() => setPreviewProduct(null), []);
 
   const {
     data: restaurantData,
@@ -329,12 +374,14 @@ export default function RestaurantScreen({ route }: Props) {
       <ProductGridRow
         pair={item}
         cardWidth={CARD_WIDTH}
+        imageHeight={imageHeight}
         cart={cart}
         onAdd={addToCart}
         onRemove={removeFromCart}
+        onImagePress={openPreview}
       />
     ),
-    [cart, addToCart, removeFromCart],
+    [cart, imageHeight, addToCart, removeFromCart, openPreview],
   );
 
   const renderSectionHeader = useCallback(
@@ -420,6 +467,7 @@ export default function RestaurantScreen({ route }: Props) {
 
       <SectionList
         style={styles.menuList}
+        onLayout={handleListLayout}
         sections={menuSections}
         keyExtractor={keyExtractor}
         extraData={cart}
@@ -477,6 +525,14 @@ export default function RestaurantScreen({ route }: Props) {
           </TouchableOpacity>
         </View>
       )}
+
+      <ImageViewerModal
+        visible={previewProduct !== null}
+        path={previewProduct?.image}
+        title={previewProduct?.name}
+        description={previewProduct?.description}
+        onClose={closePreview}
+      />
     </View>
   );
 }
@@ -484,7 +540,7 @@ export default function RestaurantScreen({ route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   menuList: { flex: 1 },
-  list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 220 },
+  list: { paddingHorizontal: LIST_PADDING, paddingTop: LIST_PADDING_TOP, paddingBottom: 220 },
   menuStickyHeader: {
     backgroundColor: COLORS.background,
     borderBottomWidth: 1,
@@ -533,7 +589,7 @@ const styles = StyleSheet.create({
   productGridRow: {
     flexDirection: 'row',
     gap: COLUMN_GAP,
-    marginBottom: 12,
+    marginBottom: ROW_GAP,
   },
   card: {
     backgroundColor: COLORS.card,
@@ -574,7 +630,6 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: '100%',
-    height: PRODUCT_IMAGE_HEIGHT,
     backgroundColor: COLORS.imagePlaceholder,
   },
   priceBadge: {
@@ -594,7 +649,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   qtyBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  cardBody: { padding: 8, gap: 2 },
+  cardBody: { height: CARD_BODY_HEIGHT, padding: 8, gap: 2 },
   productName: { fontSize: 13, fontWeight: '600', color: COLORS.text },
   productDescription: { fontSize: 11, color: COLORS.textMuted, lineHeight: 15 },
   controlBtn: {
