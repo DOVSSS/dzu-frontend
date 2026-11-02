@@ -3,6 +3,8 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
 import type { User, AuthResponse } from '../types/api.types';
@@ -31,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(savedUser);
         }
       } catch (error) {
-        console.error('Session restore failed:', error);
+        if (__DEV__) console.error('Session restore failed:', error);
         await TokenManager.clearToken();
         setToken(null);
         setUser(null);
@@ -43,7 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initAuth();
   }, []);
 
-  const applyAuthResponse = async (data: AuthResponse): Promise<void> => {
+  const applyAuthResponse = useCallback(async (data: AuthResponse): Promise<void> => {
     await TokenManager.setToken(data.accessToken);
     await TokenManager.setRefreshToken(data.refreshToken);
     await TokenManager.setUser(data.user);
@@ -55,17 +57,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (pushToken) {
       try {
         await api.patch(`/users/${data.user.id}`, { pushToken });
-      } catch (e) {
+      } catch {
       }
     }
-  };
+  }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = useCallback(async (email: string, password: string): Promise<void> => {
     const data = await loginRequest({ email, password });
     await applyAuthResponse(data);
-  };
+  }, [applyAuthResponse]);
 
-  const register = async (
+  const register = useCallback(async (
     name: string,
     email: string,
     password: string,
@@ -74,56 +76,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   ): Promise<void> => {
     const data = await registerRequest({ name, email, password, phone, address });
     await applyAuthResponse(data);
-  };
+  }, [applyAuthResponse]);
 
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     try {
       await TokenManager.clearToken();
       setToken(null);
       setUser(null);
     } catch (error) {
-      console.error('Failed to logout:', error);
+      if (__DEV__) console.error('Failed to logout:', error);
     }
-  };
+  }, []);
 
-  const updateUser = async (data: Partial<User>): Promise<void> => {
+  const updateUser = useCallback(async (data: Partial<User>): Promise<void> => {
     if (!user) return;
     const response = await api.patch(`/users/${user.id}`, data);
     setUser(response.data);
     await TokenManager.setUser(response.data);
-  };
+  }, [user]);
 
-  const deleteAccount = async (): Promise<void> => {
-  await api.delete('/users/me');
-  await TokenManager.clearToken();
-  setToken(null);
-  setUser(null);
-};
+  const deleteAccount = useCallback(async (): Promise<void> => {
+    await api.delete('/users/me');
+    await TokenManager.clearToken();
+    setToken(null);
+    setUser(null);
+  }, []);
 
-  // Гейт для действий, требующих логина (корзина, оформление заказа, профиль).
-  // Если токена нет — вместо действия открываем модалку логина.
-  const requireAuth = (action: () => void) => {
+  const requireAuth = useCallback((action: () => void) => {
     if (token) {
       action();
     } else {
       openAuthModal();
     }
-  };
+  }, [token]);
+
+  const value = useMemo<AuthContextType>(() => ({
+    user,
+    token,
+    isLoading,
+    login,
+    register,
+    logout,
+    updateUser,
+    requireAuth,
+    deleteAccount,
+  }), [
+    user,
+    token,
+    isLoading,
+    login,
+    register,
+    logout,
+    updateUser,
+    requireAuth,
+    deleteAccount,
+  ]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isLoading,
-        login,
-        register,
-        logout,
-        updateUser,
-        requireAuth,
-        deleteAccount,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

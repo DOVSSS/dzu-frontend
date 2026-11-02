@@ -11,9 +11,11 @@ let memoryUser: User | null = null;
 export const TokenManager = {
   async init(): Promise<void> {
     try {
-      const token = await AsyncStorage.getItem(TOKEN_KEY);
-      const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
-      const userJson = await AsyncStorage.getItem(USER_KEY);
+      const [token, refreshToken, userJson] = await Promise.all([
+        AsyncStorage.getItem(TOKEN_KEY),
+        AsyncStorage.getItem(REFRESH_TOKEN_KEY),
+        AsyncStorage.getItem(USER_KEY),
+      ]);
       memoryToken = token;
       memoryRefreshToken = refreshToken;
       memoryUser = userJson ? JSON.parse(userJson) : null;

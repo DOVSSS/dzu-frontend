@@ -1,85 +1,199 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, memo } from 'react';
 import {
-  View, Text, ActivityIndicator, FlatList, TouchableOpacity,
-  StyleSheet, Image, Dimensions, StatusBar,
+  View, Text, FlatList, TouchableOpacity,
+  StyleSheet, Dimensions, StatusBar,
 } from 'react-native';
-import { getRestaurants } from '../services/restaurantService';
+import CachedRemoteImage from '../components/CachedRemoteImage';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getRestaurantsCatalog, getRestaurantById } from '../services/restaurantService';
 import { useAuth } from '../context/AuthContext';
-import type { Restaurant } from '../types/api.types';
+import type { RestaurantCatalogItem } from '../types/api.types';
 import { COLORS } from '../constants/theme';
-import { API_URL } from '../constants/storageKeys';
-
+import { queryKeys } from '../query/keys';
+import RestaurantCatalogSkeleton from '../components/RestaurantCatalogSkeleton';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - 12) / 2;
+const LIST_PADDING = 16;
+const CARD_WIDTH = SCREEN_WIDTH - LIST_PADDING * 2;
+/** Banner aspect ratio width : height = 2.8 : 1 */
+const CARD_IMAGE_HEIGHT = CARD_WIDTH / 2.8;
+/** ~2× card width for retina thumbnails */
+const RESTAURANT_THUMB_WIDTH = Math.ceil(CARD_WIDTH * 2);
+type RestaurantCardProps = {
+  item: RestaurantCatalogItem;
+  cardWidth: number;
+  onPress: (item: RestaurantCatalogItem) => void;
+  onPressIn: (id: string) => void;
+};
 
-export default function HomeScreen({ navigation }: any) {
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const { logout, requireAuth } = useAuth();
-
-  useEffect(() => { loadRestaurants(); }, []);
-
-  const loadRestaurants = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const data = await getRestaurants();
-      setRestaurants(data);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) return (
-    <View style={styles.centered}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
-    </View>
+const RestaurantCard = memo(function RestaurantCard({
+  item,
+  cardWidth,
+  onPress,
+  onPressIn,
+}: RestaurantCardProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.card, { width: cardWidth }]}
+      onPress={() => onPress(item)}
+      onPressIn={() => onPressIn(item.id)}
+      activeOpacity={0.85}
+    >
+      <View style={styles.cardImageWrapper}>
+        <CachedRemoteImage
+          path={item.image}
+          width={RESTAURANT_THUMB_WIDTH}
+          quality={82}
+          style={[styles.cardImage, item.isOpen === false && styles.cardImageClosed]}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
+        />
+        {item.isOpen === false && (
+          <View style={styles.closedOverlay} />
+        )}
+        {item.isOpen === false && (
+          <View style={styles.closedBadge}>
+            <Text style={styles.closedBadgeText}>Закрыто</Text>
+          </View>
+        )}
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>{item.productCount} блюд</Text>
+        </View>
+      </View>
+      <View style={styles.cardBody}>
+        <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+      </View>
+    </TouchableOpacity>
   );
+});
 
-  if (error) return (
-    <View style={styles.centered}>
-      <Text style={styles.errorText}>{error}</Text>
-      <TouchableOpacity onPress={loadRestaurants} style={styles.btn}>
-        <Text style={styles.btnText}>Повторить</Text>
+function HomeHeader({
+  requireAuth,
+  navigation,
+}: {
+  requireAuth: (action: () => void) => void;
+  navigation: { navigate: (screen: string) => void };
+}) {
+  return (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.profileBtn}
+        onPress={() => requireAuth(() => navigation.navigate('Profile'))}
+      >
+        <Text style={styles.profileBtnText}>👤 Профиль</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.ordersBtn}
+        onPress={() => requireAuth(() => navigation.navigate('Orders'))}
+      >
+        <Text style={styles.ordersBtnText}>📦 Заказы</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.taxiBtn}
+        onPress={() => requireAuth(() => navigation.navigate('TaxiOrder'))}
+        accessibilityLabel="Заказать такси"
+      >
+        <Text style={styles.taxiBtnText}>🚕</Text>
       </TouchableOpacity>
     </View>
   );
+}
+
+export default function HomeScreen({ navigation }: any) {
+  const { requireAuth } = useAuth();
+  const queryClient = useQueryClient();
+
+  const {
+    data: restaurants = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.restaurantsCatalog,
+    queryFn: getRestaurantsCatalog,
+    staleTime: 5 * 60_000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 8000),
+  });
+
+  const prefetchRestaurant = useCallback(
+    (id: string) => {
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.restaurant(id),
+        queryFn: () => getRestaurantById(id),
+        staleTime: 5 * 60_000,
+      });
+    },
+    [queryClient],
+  );
+
+  const openRestaurant = useCallback(
+    (item: RestaurantCatalogItem) => {
+      navigation.navigate('Restaurant', { restaurantId: item.id, name: item.name });
+    },
+    [navigation],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: RestaurantCatalogItem }) => (
+      <RestaurantCard
+        item={item}
+        cardWidth={CARD_WIDTH}
+        onPress={openRestaurant}
+        onPressIn={prefetchRestaurant}
+      />
+    ),
+    [openRestaurant, prefetchRestaurant],
+  );
+
+  const keyExtractor = useCallback((item: RestaurantCatalogItem) => item.id, []);
+
+  const errorMessage = getApiErrorMessage(error, 'Не удалось загрузить рестораны');
+
+  if (isLoading && restaurants.length === 0) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <HomeHeader requireAuth={requireAuth} navigation={navigation} />
+        <RestaurantCatalogSkeleton />
+      </View>
+    );
+  }
+
+  if (isError && restaurants.length === 0) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <HomeHeader requireAuth={requireAuth} navigation={navigation} />
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+          <TouchableOpacity onPress={() => refetch()} style={styles.btn}>
+            <Text style={styles.btnText}>Повторить</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-
-{/* Хедер */}
-<View style={styles.header}>
-  <TouchableOpacity
-    style={styles.profileBtn}
-   onPress={() => requireAuth(() => navigation.navigate('Profile'))}
-  >
-    <Text style={styles.profileBtnText}>👤 Профиль</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity
-    style={styles.ordersBtn}
-   onPress={() => requireAuth(() => navigation.navigate('Orders'))}
-  >
-    <Text style={styles.ordersBtnText}>📦 Заказы</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-    <Text style={styles.logoutText}>Выйти</Text>
-  </TouchableOpacity>
-</View>
+      <HomeHeader requireAuth={requireAuth} navigation={navigation} />
 
       <FlatList
         data={restaurants}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         contentContainerStyle={styles.list}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        removeClippedSubviews
         ListHeaderComponent={
           <Text style={styles.sectionTitle}>
             {restaurants.length} ресторанов рядом
@@ -91,35 +205,6 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.emptyText}>Рестораны не найдены</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.card, { width: CARD_WIDTH }]}
-            onPress={() => navigation.navigate('Restaurant', { restaurant: item })}
-            activeOpacity={0.85}
-          >
-            <View style={styles.cardImageWrapper}>
-              <Image
-                source={{ uri: `${API_URL}${item.image}` }}
-                style={[styles.cardImage, item.isOpen === false && styles.cardImageClosed]}
-              />
-              {item.isOpen === false && (
-                <View style={styles.closedOverlay} />
-              )}
-              {item.isOpen === false && (
-                <View style={styles.closedBadge}>
-                  <Text style={styles.closedBadgeText}>Закрыто</Text>
-                </View>
-              )}
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{item.products?.length ?? 0} блюд</Text>
-              </View>
-            </View>
-            <View style={styles.cardBody}>
-              <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.cardSlug} numberOfLines={1}>/{item.slug}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
       />
     </View>
   );
@@ -135,29 +220,29 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
-  greeting: { fontSize: 13, color: COLORS.textSecondary },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text },
-  headerActions: { alignItems: 'flex-end', gap: 6 },
   ordersBtn: {
     backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 20,
   },
   ordersBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
-  logoutBtn: { padding: 4 },
-  logoutText: { fontSize: 12, color: COLORS.textMuted },
-
-  list: { padding: 16, paddingBottom: 32 },
-  row: { gap: 12, marginBottom: 12 },
+  taxiBtn: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20,
+  },
+  taxiBtnText: { fontSize: 20 },
+  list: { padding: LIST_PADDING, paddingBottom: 32 },
   sectionTitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 14 },
 
   card: {
     backgroundColor: COLORS.card, borderRadius: 16, overflow: 'hidden',
+    marginBottom: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   cardImageWrapper: { position: 'relative' },
-  cardImage: { width: '100%', height: CARD_WIDTH * 0.75, backgroundColor: COLORS.border },
+  cardImage: { width: '100%', height: CARD_IMAGE_HEIGHT, backgroundColor: COLORS.border },
   cardImageClosed: { opacity: 0.5 },
   closedOverlay: {
     ...StyleSheet.absoluteFill,
@@ -177,8 +262,6 @@ const styles = StyleSheet.create({
   countBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   cardBody: { padding: 10, gap: 2 },
   cardTitle: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  cardSlug: { fontSize: 11, color: COLORS.textMuted },
-
   emptyIcon: { fontSize: 48, marginBottom: 8 },
   emptyText: { fontSize: 16, color: COLORS.textSecondary },
   errorText: { color: COLORS.error },
@@ -186,9 +269,9 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontWeight: '600' },
 
   profileBtn: {
-  backgroundColor: COLORS.border,
-  paddingHorizontal: 12, paddingVertical: 6,
-  borderRadius: 20,
-},
-profileBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+    backgroundColor: COLORS.border,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20,
+  },
+  profileBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
 });

@@ -1,39 +1,39 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, FlatList, StyleSheet, ActivityIndicator,
   TouchableOpacity, RefreshControl, Alert,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMyOrders, cancelOrder, Order } from '../services/orderService';
 import { COLORS, STATUS_MAP } from '../constants/theme';
+import { queryKeys } from '../query/keys';
+
+const ORDERS_POLL_MS = 10_000;
 
 export default function OrdersScreen() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const isFocused = useIsFocused();
+  const queryClient = useQueryClient();
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const loadOrders = async () => {
-    try {
-      setError('');
-      const data = await getMyOrders();
-      setOrders(data);
-    } catch (e: any) {
-      const message = e?.response?.data?.message || e?.message || 'Ошибка загрузки';
-      setError(Array.isArray(message) ? message[0] : message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const {
+    data: orders = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: queryKeys.myOrders,
+    queryFn: getMyOrders,
+    enabled: isFocused,
+    refetchInterval: isFocused ? ORDERS_POLL_MS : false,
+    staleTime: 0,
+  });
 
-  useEffect(() => {
-    loadOrders();
-    const interval = setInterval(loadOrders, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const onRefresh = useCallback(() => { setRefreshing(true); loadOrders(); }, []);
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const handleCancel = (order: Order) => {
     Alert.alert(
@@ -48,40 +48,59 @@ export default function OrdersScreen() {
             try {
               setCancellingId(order.id);
               const updated = await cancelOrder(order.id);
-              setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
-            } catch (e: any) {
+              queryClient.setQueryData<Order[]>(queryKeys.myOrders, (prev) =>
+                prev?.map(o => (o.id === updated.id ? updated : o)) ?? [updated],
+              );
+            } catch {
               Alert.alert('Ошибка', 'Не удалось отменить заказ');
             } finally {
               setCancellingId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
-  if (loading) return (
-    <View style={styles.centered}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
-    </View>
-  );
+  const errorMessage =
+    (error as any)?.response?.data?.message
+    ?? (error as Error)?.message
+    ?? 'Ошибка загрузки';
 
-  if (error) return (
-    <View style={styles.centered}>
-      <Text style={styles.errorText}>{error}</Text>
-      <TouchableOpacity onPress={loadOrders} style={styles.btn}>
-        <Text style={styles.btnText}>Повторить</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  if (isLoading && orders.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (isError && orders.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{errorMessage}</Text>
+        <TouchableOpacity onPress={() => refetch()} style={styles.btn}>
+          <Text style={styles.btnText}>Повторить</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <FlatList
       data={orders}
       keyExtractor={item => item.id}
       contentContainerStyle={styles.list}
+      initialNumToRender={6}
+      maxToRenderPerBatch={4}
+      windowSize={5}
+      removeClippedSubviews
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        <RefreshControl
+          refreshing={isFetching && !isLoading}
+          onRefresh={onRefresh}
+          tintColor={COLORS.primary}
+        />
       }
       ListHeaderComponent={
         orders.length > 0
@@ -98,7 +117,11 @@ export default function OrdersScreen() {
       renderItem={({ item }) => {
         const status = STATUS_MAP[item.status] ?? { label: item.status, color: COLORS.textMuted };
         const isDelivering = item.status === 'DELIVERING';
-        const canCancel = item.status === 'PENDING' || item.status === 'ACCEPTED';
+        const isTaxi = item.type === 'TAXI';
+        const canCancel =
+          item.status === 'PENDING'
+          || item.status === 'ACCEPTED'
+          || (isTaxi && item.status === 'READY' && !item.courier);
 
         return (
           <View style={styles.card}>
@@ -106,17 +129,36 @@ export default function OrdersScreen() {
             <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
                 <Text style={styles.reference}>#{item.reference}</Text>
-                <View style={[styles.badge, { backgroundColor: status.color + '18' }]}>
-                  <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
+                <View style={styles.headerBadges}>
+                  {isTaxi && (
+                    <View style={styles.taxiBadge}>
+                      <Text style={styles.taxiBadgeText}>🚕 Такси</Text>
+                    </View>
+                  )}
+                  <View style={[styles.badge, { backgroundColor: status.color + '18' }]}>
+                    <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
+                  </View>
                 </View>
               </View>
 
-              {item.items.map(i => (
-                <View key={i.id} style={styles.itemRow}>
-                  <Text style={styles.itemName} numberOfLines={1}>{i.productName}</Text>
-                  <Text style={styles.itemMeta}>{i.quantity} × {i.price} ₽</Text>
+              {isTaxi ? (
+                <View style={styles.taxiAddresses}>
+                  <Text style={styles.taxiAddrLabel}>Откуда</Text>
+                  <Text style={styles.taxiAddrText}>{item.deliveryAddress ?? '—'}</Text>
+                  <Text style={[styles.taxiAddrLabel, { marginTop: 8 }]}>Куда</Text>
+                  <Text style={styles.taxiAddrText}>{item.destinationAddress ?? '—'}</Text>
+                  {item.comment ? (
+                    <Text style={styles.taxiComment}>💬 {item.comment}</Text>
+                  ) : null}
                 </View>
-              ))}
+              ) : (
+                item.items.map(i => (
+                  <View key={i.id} style={styles.itemRow}>
+                    <Text style={styles.itemName} numberOfLines={1}>{i.productName}</Text>
+                    <Text style={styles.itemMeta}>{i.quantity} × {i.price} ₽</Text>
+                  </View>
+                ))
+              )}
 
               {isDelivering && item.courier && (
                 <View style={styles.courierBlock}>
@@ -171,8 +213,17 @@ const styles = StyleSheet.create({
   cardContent: { flex: 1, padding: 14 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   reference: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  headerBadges: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  taxiBadge: {
+    backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20,
+  },
+  taxiBadgeText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeText: { fontSize: 12, fontWeight: '600' },
+  taxiAddresses: { marginBottom: 4 },
+  taxiAddrLabel: { fontSize: 11, color: COLORS.textMuted, fontWeight: '600' },
+  taxiAddrText: { fontSize: 13, color: COLORS.text, marginTop: 2 },
+  taxiComment: { fontSize: 12, color: COLORS.textSecondary, marginTop: 8, fontStyle: 'italic' },
 
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   itemName: { flex: 1, fontSize: 13, color: COLORS.text, marginRight: 8 },

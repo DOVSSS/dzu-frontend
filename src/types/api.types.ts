@@ -23,7 +23,21 @@ export interface Restaurant {
   openTime?: string | null;
   closeTime?: string | null;
   isOpen?: boolean;
-   products: Product[];
+  products: Product[];
+}
+
+/** Карточка ресторана на главной (GET /restaurants/catalog). */
+export interface RestaurantCatalogItem {
+  id: string;
+  name: string;
+  slug: string;
+  image: string;
+  createdAt: string;
+  updatedAt: string;
+  openTime?: string | null;
+  closeTime?: string | null;
+  isOpen?: boolean;
+  productCount: number;
 }
 
 
@@ -47,6 +61,8 @@ export interface Product {
   category?: Category;
   createdAt: string;
   updatedAt: string;
+  /** false — стоп-лист, заказ недоступен */
+  isAvailable?: boolean;
 }
 
 export interface RestaurantWithProducts extends Restaurant {

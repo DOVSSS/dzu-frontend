@@ -6,12 +6,24 @@ export type CartItem = {
   quantity: number;
 };
 
+export type OrderType = 'FOOD' | 'TAXI';
+
 export type CreateOrderPayload = {
   items: CartItem[];
   deliveryAddress?: string;
   comment?: string;
   deliveryLat?: number;
   deliveryLng?: number;
+};
+
+export type CreateTaxiOrderPayload = {
+  deliveryAddress: string;
+  destinationAddress: string;
+  comment?: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
+  destinationLat?: number;
+  destinationLng?: number;
 };
 
 export type OrderItem = {
@@ -26,8 +38,10 @@ export type Order = {
   id: string;
   reference: string;
   status: string;
+  type?: OrderType;
   total: number;
   deliveryAddress?: string;
+  destinationAddress?: string | null;
   comment?: string;
   createdAt: string;
   items: OrderItem[];
@@ -41,6 +55,11 @@ export type Order = {
 
 export const createOrder = async (payload: CreateOrderPayload) => {
   const response = await api.post('/orders', payload);
+  return response.data;
+};
+
+export const createTaxiOrder = async (payload: CreateTaxiOrderPayload) => {
+  const response = await api.post('/orders/taxi', payload);
   return response.data;
 };
 
