@@ -27,11 +27,12 @@ export default function TaxiOrderScreen({ navigation }: { navigation: { goBack: 
     staleTime: 5 * 60_000,
   });
 
+  // Prefill once when the profile address becomes available.
+  // Do not depend on pickupAddress: emptying the field must not restore the old address.
   useEffect(() => {
-    if (user?.address && !pickupAddress) {
-      setPickupAddress(user.address);
-    }
-  }, [user?.address, pickupAddress]);
+    if (!user?.address) return;
+    setPickupAddress((current) => (current === '' ? user.address! : current));
+  }, [user?.address]);
 
   const tripPrice = settings.taxiFee ?? DEFAULT_SETTINGS.taxiFee;
 
