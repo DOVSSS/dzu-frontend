@@ -1,19 +1,16 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   View, Text, SectionList, StyleSheet, TouchableOpacity,
-  Alert, ActivityIndicator, Dimensions, ScrollView, Pressable, LayoutChangeEvent,
+  ActivityIndicator, Dimensions, ScrollView, Pressable, LayoutChangeEvent,
 } from 'react-native';
 import CachedRemoteImage from '../components/CachedRemoteImage';
 import ImageViewerModal from '../components/ImageViewerModal';
 import type { Product, Category } from '../types/api.types';
-import { createOrder } from '../services/orderService';
 import { getRestaurantById } from '../services/restaurantService';
-import { getSettings, Settings } from '../services/settingsService';
 import { queryKeys } from '../query/keys';
 import { COLORS } from '../constants/theme';
-import { useAuth } from '../context/AuthContext';
-import * as Location from 'expo-location';
+import { useCart } from '../context/CartContext';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const LIST_PADDING = 16;
 const COLUMN_GAP = 12;
@@ -35,8 +32,6 @@ function computeImageHeight(listHeight: number): number {
   const imageHeight = Math.floor(cardHeight - CARD_BODY_HEIGHT);
   return Math.min(MAX_IMAGE_HEIGHT, Math.max(MIN_IMAGE_HEIGHT, imageHeight));
 }
-
-const DEFAULT_SETTINGS: Settings = { deliveryFee: 150, serviceFee: 50, taxiFee: 200 };
 
 const compareByName = (a: Product, b: Product) =>
   a.name.localeCompare(b.name, 'ru');
@@ -69,7 +64,9 @@ function pairProducts(items: Product[]): ProductPair[] {
   return pairs;
 }
 
-type Props = { route: { params: { restaurantId: string; name: string } } };
+type Props = {
+  route: { params: { restaurantId: string; name: string } };
+};
 
 type ProductRowProps = {
   item: Product;
@@ -203,10 +200,12 @@ const ProductGridRow = memo(function ProductGridRow({
 
 export default function RestaurantScreen({ route }: Props) {
   const { restaurantId } = route.params;
-  const { requireAuth } = useAuth();
-  const queryClient = useQueryClient();
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [isOrdering, setIsOrdering] = useState(false);
+  const {
+    items: cartItems,
+    restaurantId: cartRestaurantId,
+    addItem,
+    removeItem,
+  } = useCart();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [listHeight, setListHeight] = useState(0);
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
@@ -231,13 +230,17 @@ export default function RestaurantScreen({ route }: Props) {
     staleTime: 5 * 60_000,
   });
 
-  const { data: settings = DEFAULT_SETTINGS } = useQuery({
-    queryKey: queryKeys.settings,
-    queryFn: getSettings,
-    staleTime: Infinity,
-  });
-
   const products = restaurantData?.products ?? [];
+  const restaurantName = restaurantData?.name ?? route.params.name;
+
+  const cart = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (cartRestaurantId && cartRestaurantId !== restaurantId) return map;
+    for (const line of cartItems) {
+      map[line.productId] = line.quantity;
+    }
+    return map;
+  }, [cartItems, cartRestaurantId, restaurantId]);
 
   const categories = useMemo(() => {
     const map = new Map<string, Category>();
@@ -302,72 +305,19 @@ export default function RestaurantScreen({ route }: Props) {
   }, [products, categories, selectedCategory]);
 
   const menuIsEmpty = menuSections.every(s => s.data.length === 0);
+  const isOpen = restaurantData?.isOpen !== false;
 
   const addToCart = useCallback(
     (id: string) => {
       const product = products.find(p => p.id === id);
-      if (product?.isAvailable === false) return;
-      setCart(prev => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+      if (!product) return;
+      addItem(product, restaurantId, restaurantName);
     },
-    [products],
+    [products, addItem, restaurantId, restaurantName],
   );
   const removeFromCart = useCallback((id: string) => {
-    setCart(prev => {
-      if ((prev[id] ?? 0) <= 1) {
-        const { [id]: _, ...rest } = prev;
-        return rest;
-      }
-      return { ...prev, [id]: prev[id] - 1 };
-    });
-  }, []);
-
-  const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ productId, quantity }));
-  const totalCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
-  const subtotal = cartItems.reduce((sum, { productId, quantity }) => {
-    const p = products.find(p => p.id === productId);
-    return sum + (p?.price ?? 0) * quantity;
-  }, 0);
-  const totalPrice = subtotal + settings.deliveryFee + settings.serviceFee;
-  const isOpen = restaurantData?.isOpen !== false;
-
-  const handleOrder = async () => {
-    if (!isOpen) {
-      Alert.alert('Ресторан закрыт', 'Сейчас нельзя оформить заказ — ресторан не работает.');
-      return;
-    }
-    if (!cartItems.length) return;
-    setIsOrdering(true);
-    try {
-      let deliveryLat: number | undefined;
-      let deliveryLng: number | undefined;
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        try {
-          const location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          deliveryLat = location.coords.latitude;
-          deliveryLng = location.coords.longitude;
-        } catch {
-          // GPS timeout/error — continue without coordinates
-        }
-      }
-
-      const order = await createOrder({
-        items: cartItems,
-        ...(deliveryLat != null && deliveryLng != null ? { deliveryLat, deliveryLng } : {}),
-      });
-      setCart({});
-      await queryClient.invalidateQueries({ queryKey: queryKeys.myOrders });
-      Alert.alert('✅ Заказ оформлен!', `Номер заказа: #${order.reference}`);
-    } catch (e: any) {
-      const message = e?.response?.data?.message || e?.message || 'Не удалось оформить заказ';
-      Alert.alert('Ошибка', Array.isArray(message) ? message[0] : message);
-    } finally {
-      setIsOrdering(false);
-    }
-  };
+    removeItem(id);
+  }, [removeItem]);
 
   const renderProduct = useCallback(
     ({ item }: { item: ProductPair }) => (
@@ -491,41 +441,6 @@ export default function RestaurantScreen({ route }: Props) {
         renderItem={renderProduct}
       />
 
-      {totalCount > 0 && (
-        <View style={styles.cartBar}>
-          <View style={styles.cartDetails}>
-            <View style={styles.cartRow}>
-              <Text style={styles.cartLabel}>Блюда ({totalCount})</Text>
-              <Text style={styles.cartValue}>{subtotal} ₽</Text>
-            </View>
-            <View style={styles.cartRow}>
-              <Text style={styles.cartLabel}>Доставка</Text>
-              <Text style={styles.cartValue}>{settings.deliveryFee} ₽</Text>
-            </View>
-            <View style={styles.cartRow}>
-              <Text style={styles.cartLabel}>Сервисный сбор</Text>
-              <Text style={styles.cartValue}>{settings.serviceFee} ₽</Text>
-            </View>
-            <View style={[styles.cartRow, styles.cartTotalRow]}>
-              <Text style={styles.cartTotalLabel}>Итого</Text>
-              <Text style={styles.cartTotalValue}>{totalPrice} ₽</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[styles.orderButton, (isOrdering || !isOpen) && styles.orderButtonDisabled]}
-            onPress={() => requireAuth(handleOrder)}
-            disabled={isOrdering || !isOpen}
-          >
-            {isOrdering
-              ? <ActivityIndicator color={COLORS.text} size="small" />
-              : <Text style={styles.orderButtonText}>
-                  {isOpen ? 'Оформить заказ · 20-60 мин' : 'Ресторан закрыт'}
-                </Text>
-            }
-          </TouchableOpacity>
-        </View>
-      )}
-
       <ImageViewerModal
         visible={previewProduct !== null}
         path={previewProduct?.image}
@@ -540,7 +455,7 @@ export default function RestaurantScreen({ route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   menuList: { flex: 1 },
-  list: { paddingHorizontal: LIST_PADDING, paddingTop: LIST_PADDING_TOP, paddingBottom: 220 },
+  list: { paddingHorizontal: LIST_PADDING, paddingTop: LIST_PADDING_TOP, paddingBottom: 100 },
   menuStickyHeader: {
     backgroundColor: COLORS.background,
     borderBottomWidth: 1,
@@ -662,27 +577,4 @@ const styles = StyleSheet.create({
 
   emptyIcon: { fontSize: 48, marginBottom: 8 },
   emptyText: { fontSize: 16, color: COLORS.textSecondary },
-
-  cartBar: {
-    position: 'absolute', bottom: 24, left: 16, right: 16,
-    backgroundColor: COLORS.text, borderRadius: 20, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2, shadowRadius: 16, elevation: 8,
-  },
-  cartDetails: { marginBottom: 12 },
-  cartRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  cartLabel: { color: '#94a3b8', fontSize: 13 },
-  cartValue: { color: '#fff', fontSize: 13 },
-  cartTotalRow: {
-    marginTop: 8, paddingTop: 8,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  cartTotalLabel: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  cartTotalValue: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  orderButton: {
-    backgroundColor: '#fff', borderRadius: 12,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  orderButtonDisabled: { opacity: 0.6 },
-  orderButtonText: { color: COLORS.text, fontWeight: '700', fontSize: 15 },
 });

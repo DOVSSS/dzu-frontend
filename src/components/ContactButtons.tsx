@@ -1,9 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-
-const WHATSAPP_URL = 'https://wa.me/79640605731';
-const TELEGRAM_URL = 'https://t.me/+79640605731';
+import { WHATSAPP_URL, TELEGRAM_URL } from '../constants/contacts';
 
 export default function ContactButtons() {
   return (

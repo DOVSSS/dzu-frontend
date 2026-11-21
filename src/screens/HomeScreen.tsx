@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, Dimensions, StatusBar,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import CachedRemoteImage from '../components/CachedRemoteImage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRestaurantsCatalog, getRestaurantById } from '../services/restaurantService';
@@ -11,6 +12,7 @@ import type { RestaurantCatalogItem } from '../types/api.types';
 import { COLORS } from '../constants/theme';
 import { queryKeys } from '../query/keys';
 import RestaurantCatalogSkeleton from '../components/RestaurantCatalogSkeleton';
+import HomeHeader from '../components/HomeHeader';
 import { getApiErrorMessage } from '../utils/apiError';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -69,37 +71,27 @@ const RestaurantCard = memo(function RestaurantCard({
   );
 });
 
-function HomeHeader({
-  requireAuth,
-  navigation,
+function TaxiCard({
+  onPress,
 }: {
-  requireAuth: (action: () => void) => void;
-  navigation: { navigate: (screen: string) => void };
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.header}>
-      <TouchableOpacity
-        style={styles.profileBtn}
-        onPress={() => requireAuth(() => navigation.navigate('Profile'))}
-      >
-        <Text style={styles.profileBtnText}>👤 Профиль</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.ordersBtn}
-        onPress={() => requireAuth(() => navigation.navigate('Orders'))}
-      >
-        <Text style={styles.ordersBtnText}>📦 Заказы</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.taxiBtn}
-        onPress={() => requireAuth(() => navigation.navigate('TaxiOrder'))}
-        accessibilityLabel="Заказать такси"
-      >
-        <Text style={styles.taxiBtnText}>🚕</Text>
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity
+      style={styles.taxiCard}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityLabel="Заказать такси"
+    >
+      <View style={styles.taxiIconWrap}>
+        <Ionicons name="car-outline" size={22} color="#fff" />
+      </View>
+      <View style={styles.taxiTextWrap}>
+        <Text style={styles.taxiTitle}>Нужно такси?</Text>
+        <Text style={styles.taxiSubtitle}>Укажите адрес, и такси приедет</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#7A6E66" />
+    </TouchableOpacity>
   );
 }
 
@@ -153,13 +145,32 @@ export default function HomeScreen({ navigation }: any) {
 
   const keyExtractor = useCallback((item: RestaurantCatalogItem) => item.id, []);
 
+  const openTaxi = useCallback(() => {
+    requireAuth(() => navigation.navigate('TaxiOrder'));
+  }, [requireAuth, navigation]);
+
+  const listHeader = useCallback(
+    () => (
+      <View>
+        <TaxiCard onPress={openTaxi} />
+        <Text style={styles.sectionTitle}>
+          {restaurants.length} ресторанов рядом
+        </Text>
+      </View>
+    ),
+    [openTaxi, restaurants.length],
+  );
+
   const errorMessage = getApiErrorMessage(error, 'Не удалось загрузить рестораны');
 
   if (isLoading && restaurants.length === 0) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
-        <HomeHeader requireAuth={requireAuth} navigation={navigation} />
+        <HomeHeader />
+        <View style={styles.list}>
+          <TaxiCard onPress={openTaxi} />
+        </View>
         <RestaurantCatalogSkeleton />
       </View>
     );
@@ -169,7 +180,10 @@ export default function HomeScreen({ navigation }: any) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
-        <HomeHeader requireAuth={requireAuth} navigation={navigation} />
+        <HomeHeader />
+        <View style={styles.list}>
+          <TaxiCard onPress={openTaxi} />
+        </View>
         <View style={styles.centered}>
           <Text style={styles.errorText}>{errorMessage}</Text>
           <TouchableOpacity onPress={() => refetch()} style={styles.btn}>
@@ -183,7 +197,7 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <HomeHeader requireAuth={requireAuth} navigation={navigation} />
+      <HomeHeader />
 
       <FlatList
         data={restaurants}
@@ -194,11 +208,7 @@ export default function HomeScreen({ navigation }: any) {
         maxToRenderPerBatch={6}
         windowSize={5}
         removeClippedSubviews
-        ListHeaderComponent={
-          <Text style={styles.sectionTitle}>
-            {restaurants.length} ресторанов рядом
-          </Text>
-        }
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           <View style={styles.centered}>
             <Text style={styles.emptyIcon}>🍽️</Text>
@@ -214,24 +224,28 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
 
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12,
-    backgroundColor: COLORS.card,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  taxiCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEDE4',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    gap: 12,
   },
-  ordersBtn: {
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20,
+  taxiIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#FF6B35',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  ordersBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
-  taxiBtn: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 20,
-  },
-  taxiBtnText: { fontSize: 20 },
+  taxiTextWrap: { flex: 1, gap: 2 },
+  taxiTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  taxiSubtitle: { fontSize: 13, color: COLORS.textSecondary },
+
   list: { padding: LIST_PADDING, paddingBottom: 32 },
   sectionTitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 14 },
 
@@ -267,11 +281,4 @@ const styles = StyleSheet.create({
   errorText: { color: COLORS.error },
   btn: { backgroundColor: COLORS.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
   btnText: { color: '#fff', fontWeight: '600' },
-
-  profileBtn: {
-    backgroundColor: COLORS.border,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20,
-  },
-  profileBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
 });

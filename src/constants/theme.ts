@@ -16,6 +16,22 @@ export const COLORS = {
   errorLight: '#FEF2F2',
 }
 
+export const SPACING = {
+  screen: 16,
+  fabPaddingH: 18,
+}
+
+/** Content height of bottom tabs (без safe-area). */
+export const TAB_BAR_CONTENT_HEIGHT = 56
+
+export const CART_FAB = {
+  height: 52,
+  iconSize: 22,
+  fontSize: 16,
+  pulseDurationMs: 1800,
+  pulseDelayMs: 900,
+}
+
 export const STATUS_MAP: Record<string, { label: string; color: string }> = {
   PENDING:    { label: 'Ожидает',      color: '#F59E0B' },
   ACCEPTED:   { label: 'Принят',       color: '#3B82F6' },

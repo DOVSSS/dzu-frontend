@@ -55,9 +55,7 @@ const handleDeleteAccount = () => {
     try {
       setIsSaving(true);
       await updateUser({ name, phone, address });
-      Alert.alert('✅ Сохранено', 'Профиль обновлён', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      Alert.alert('✅ Сохранено', 'Профиль обновлён');
     } catch (e: any) {
       Alert.alert('Ошибка', 'Не удалось сохранить');
     } finally {
