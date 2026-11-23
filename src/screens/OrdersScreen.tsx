@@ -51,8 +51,13 @@ export default function OrdersScreen() {
               queryClient.setQueryData<Order[]>(queryKeys.myOrders, (prev) =>
                 prev?.map(o => (o.id === updated.id ? updated : o)) ?? [updated],
               );
-            } catch {
-              Alert.alert('Ошибка', 'Не удалось отменить заказ');
+            } catch (e: any) {
+              const message = e?.response?.data?.message;
+              Alert.alert(
+                'Не удалось отменить заказ',
+                typeof message === 'string' ? message : 'Попробуйте ещё раз',
+              );
+              refetch();
             } finally {
               setCancellingId(null);
             }
@@ -118,10 +123,9 @@ export default function OrdersScreen() {
         const status = STATUS_MAP[item.status] ?? { label: item.status, color: COLORS.textMuted };
         const isDelivering = item.status === 'DELIVERING';
         const isTaxi = item.type === 'TAXI';
-        const canCancel =
-          item.status === 'PENDING'
-          || item.status === 'ACCEPTED'
-          || (isTaxi && item.status === 'READY' && !item.courier);
+        const canCancel = isTaxi
+          ? (item.status === 'PENDING' || item.status === 'READY') && !item.courier
+          : item.status === 'PENDING';
 
         return (
           <View style={styles.card}>
