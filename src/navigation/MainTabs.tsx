@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import HomeScreen from '../screens/HomeScreen';
+import HubScreen from '../screens/HubScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import CartScreen from '../screens/CartScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -69,12 +69,12 @@ export default function MainTabs() {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={HubScreen}
         options={{
-          title: 'Рестораны',
-          tabBarLabel: 'Рестораны',
+          title: 'Главная',
+          tabBarLabel: 'Главная',
           headerShown: false,
-          tabBarIcon: ({ focused }) => tabIcon(focused ? 'storefront' : 'storefront-outline', focused),
+          tabBarIcon: ({ focused }) => tabIcon(focused ? 'home' : 'home-outline', focused),
         }}
       />
       <Tab.Screen
