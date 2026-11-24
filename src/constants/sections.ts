@@ -5,17 +5,28 @@ import {
   Pill,
   Package,
   Car,
+  Flower2,
+  Hamburger,
+  Pizza,
+  Carrot,
+  Apple,
+  Cross,
+  CarTaxiFront,
+  Sparkles,
 } from 'lucide-react-native';
+import { SECTION_COLORS, SECTION_TILE } from './theme';
 
 export type SectionColors = {
-  background: string;
-  circle: string;
-  icon: string;
+  /** Градиент фона плитки. */
+  from: string;
+  to: string;
+  /** Цвет значка и иллюстрации. */
+  accent: string;
   title: string;
   subtitle: string;
 };
 
-export type SectionLayout = 'full' | 'half';
+export type SectionLayout = 'hero' | 'full' | 'half';
 
 export type SectionRoute = 'Food' | 'TaxiOrder';
 
@@ -24,37 +35,22 @@ export type SectionConfig = {
   title: string;
   subtitle: string;
   icon: LucideIcon;
-  /** Брендовые цвета раздела (включаются при available: true). */
+  /** Крупная иллюстрация в правом нижнем углу и второстепенная рядом. */
+  art: LucideIcon;
+  artSecondary?: LucideIcon;
   colors: SectionColors;
   available: boolean;
   route?: SectionRoute;
   layout: SectionLayout;
   height: number;
+  /** Текст кнопки на hero-плитке. */
+  cta?: string;
   /** Показать бейдж «Новое», когда раздел available. */
   isNew?: boolean;
 };
 
-export const SECTION_SOON_COLORS: SectionColors = {
-  background: '#EFEDEB',
-  circle: '#E3E0DD',
-  icon: '#A39A93',
-  title: '#7A6E66',
-  subtitle: '#A39A93',
-};
-
-export const SECTION_TILE = {
-  radius: 20,
-  gap: 10,
-  iconSize: 36,
-  circleSize: 96,
-  titleSize: 18,
-  subtitleSize: 13,
-  badgeFontSize: 11,
-  badgeRadius: 10,
-} as const;
-
-const TITLE = '#1F1A17';
-const SUBTITLE = '#5C514A';
+const TITLE = SECTION_COLORS.title;
+const SUBTITLE = SECTION_COLORS.subtitle;
 
 export const SECTIONS: SectionConfig[] = [
   {
@@ -62,82 +58,72 @@ export const SECTIONS: SectionConfig[] = [
     title: 'Еда',
     subtitle: 'Рестораны и кафе рядом',
     icon: UtensilsCrossed,
-    colors: {
-      background: '#FFE6D8',
-      circle: '#FFD0B5',
-      icon: '#C2451A',
-      title: TITLE,
-      subtitle: SUBTITLE,
-    },
+    art: Hamburger,
+    artSecondary: Pizza,
+    colors: { ...SECTION_COLORS.food, title: '#FFFFFF', subtitle: 'rgba(255,255,255,0.92)' },
     available: true,
     route: 'Food',
-    layout: 'full',
-    height: 124,
+    layout: 'hero',
+    height: SECTION_TILE.heroHeight,
+    cta: 'Заказать',
   },
   {
     id: 'grocery',
     title: 'Продукты',
     subtitle: 'Магазины и супермаркеты',
     icon: ShoppingBasket,
-    colors: {
-      background: '#E4F2D9',
-      circle: '#CDE8B8',
-      icon: '#3F6B1A',
-      title: TITLE,
-      subtitle: SUBTITLE,
-    },
+    art: Carrot,
+    artSecondary: Apple,
+    colors: { ...SECTION_COLORS.grocery, title: TITLE, subtitle: SUBTITLE },
     available: false,
     layout: 'half',
-    height: 140,
+    height: SECTION_TILE.halfHeight,
   },
   {
     id: 'pharmacy',
     title: 'Аптека',
     subtitle: 'Лекарства и товары для здоровья',
-    icon: Pill,
-    colors: {
-      background: '#DDF1F2',
-      circle: '#BFE4E6',
-      icon: '#1F6B70',
-      title: TITLE,
-      subtitle: SUBTITLE,
-    },
+    icon: Cross,
+    art: Pill,
+    colors: { ...SECTION_COLORS.pharmacy, title: TITLE, subtitle: SUBTITLE },
     available: false,
     layout: 'half',
-    height: 140,
+    height: SECTION_TILE.halfHeight,
   },
   {
     id: 'courier',
     title: 'Курьер',
     subtitle: 'Доставим всё, что нужно',
     icon: Package,
-    colors: {
-      background: '#EAE6FA',
-      circle: '#D6CFF3',
-      icon: '#4A3D8C',
-      title: TITLE,
-      subtitle: SUBTITLE,
-    },
+    art: Package,
+    colors: { ...SECTION_COLORS.courier, title: TITLE, subtitle: SUBTITLE },
     available: false,
     layout: 'half',
-    height: 140,
+    height: SECTION_TILE.halfHeight,
   },
   {
     id: 'taxi',
     title: 'Такси',
     subtitle: 'Укажите адрес, и такси приедет',
     icon: Car,
-    colors: {
-      background: '#FFF1BF',
-      circle: '#FFE48A',
-      icon: '#8A5A00',
-      title: TITLE,
-      subtitle: SUBTITLE,
-    },
+    art: CarTaxiFront,
+    colors: { ...SECTION_COLORS.taxi, title: TITLE, subtitle: SUBTITLE },
     available: true,
     route: 'TaxiOrder',
     layout: 'half',
-    height: 140,
+    height: SECTION_TILE.halfHeight,
     isNew: true,
+  },
+  {
+    id: 'beauty',
+    title: 'Красота и здоровье',
+    subtitle: 'Косметика, уход, витамины и товары для здоровья',
+    icon: Flower2,
+    art: Sparkles,
+    artSecondary: Flower2,
+    colors: { ...SECTION_COLORS.beauty, title: TITLE, subtitle: SUBTITLE },
+    available: false,
+    layout: 'full',
+    height: SECTION_TILE.fullHeight,
   },
 ];

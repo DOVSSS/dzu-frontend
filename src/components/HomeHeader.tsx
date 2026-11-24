@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { WHATSAPP_URL, TELEGRAM_URL } from '../constants/contacts';
+import { COLORS } from '../constants/theme';
 
 const LABEL = '#7A6E66';
 const ADDRESS = '#1F1A17';
@@ -66,13 +67,17 @@ export default function HomeHeader() {
           activeOpacity={0.7}
           accessibilityLabel="Адрес доставки"
         >
-          <Text style={styles.label}>Доставка по адресу</Text>
-          <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={16} color={PIN} style={styles.pin} />
-            <Text style={styles.address} numberOfLines={1}>
-              {displayAddress}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={LABEL} />
+          <View style={styles.pinBox}>
+            <Ionicons name="location" size={22} color={PIN} />
+          </View>
+          <View style={styles.addressText}>
+            <Text style={styles.label}>Доставка по адресу</Text>
+            <View style={styles.addressRow}>
+              <Text style={styles.address} numberOfLines={1}>
+                {displayAddress}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={ADDRESS} />
+            </View>
           </View>
         </TouchableOpacity>
 
@@ -83,7 +88,7 @@ export default function HomeHeader() {
           accessibilityLabel="Связаться с нами"
         >
           <View style={styles.supportBtn}>
-            <Ionicons name="headset-outline" size={18} color={ADDRESS} />
+            <Ionicons name="headset-outline" size={22} color={ADDRESS} />
           </View>
         </TouchableOpacity>
       </View>
@@ -165,11 +170,9 @@ export default function HomeHeader() {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
+    paddingBottom: 8,
   },
   row: {
     flexDirection: 'row',
@@ -179,42 +182,60 @@ const styles = StyleSheet.create({
   addressHit: {
     flex: 1,
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pinBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: COLORS.card,
     justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: PIN,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  addressText: {
+    flex: 1,
   },
   label: {
     fontSize: 12,
     color: LABEL,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  pin: {
-    marginTop: 1,
-  },
   address: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
+    flexShrink: 1,
+    fontSize: 17,
+    fontWeight: '700',
     color: ADDRESS,
   },
   supportHit: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
   supportBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 0.5,
-    borderColor: BORDER,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.card,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   sheetBackdrop: {

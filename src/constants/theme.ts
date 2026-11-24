@@ -23,26 +23,37 @@ export const SPACING = {
 }
 
 export const SECTION_COLORS = {
-  food: { background: '#FFE6D8', circle: '#FFD0B5', icon: '#C2451A' },
-  taxi: { background: '#FFF1BF', circle: '#FFE48A', icon: '#8A5A00' },
-  grocery: { background: '#E4F2D9' },
-  pharmacy: { background: '#DDF1F2' },
-  courier: { background: '#EAE6FA' },
-  soon: {
-    background: '#EFEDEB',
-    circle: '#E3E0DD',
-    icon: '#A39A93',
-    title: '#7A6E66',
-    subtitle: '#A39A93',
-    badge: '#7A6E66',
-  },
+  food: { from: '#FF5A36', to: '#FF9A4D', accent: '#FFFFFF' },
+  grocery: { from: '#E6F7DC', to: '#C8EDC9', accent: '#2FA84F' },
+  pharmacy: { from: '#E0F4FB', to: '#BFE5F5', accent: '#159BC4' },
+  courier: { from: '#FFEDE0', to: '#FFD6BD', accent: '#FF7A2F' },
+  taxi: { from: '#FFF6D1', to: '#FFE38A', accent: '#F2B200' },
+  beauty: { from: '#F8EAFB', to: '#E6D2F7', accent: '#B45CD8' },
   title: '#1F1A17',
   subtitle: '#5C514A',
+  soonBadge: '#7A6E66',
   newBadge: '#FF6B35',
 } as const
 
+export const SECTION_TILE = {
+  radius: 22,
+  gap: 12,
+  heroHeight: 176,
+  halfHeight: 156,
+  fullHeight: 128,
+  badgeIconBox: 40,
+  titleSize: 19,
+  heroTitleSize: 30,
+  subtitleSize: 12.5,
+  artSize: 64,
+  heroArtSize: 104,
+  arrowSize: 34,
+  badgeFontSize: 11,
+  badgeRadius: 10,
+} as const
+
 /** Content height of bottom tabs (без safe-area). */
-export const TAB_BAR_CONTENT_HEIGHT = 56
+export const TAB_BAR_CONTENT_HEIGHT = 64
 
 export const CART_FAB = {
   height: 52,

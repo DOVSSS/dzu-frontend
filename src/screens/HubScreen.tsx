@@ -13,8 +13,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import HomeHeader from '../components/HomeHeader';
 import SectionTile from '../components/SectionTile';
-import { SECTIONS, SECTION_TILE, type SectionConfig } from '../constants/sections';
-import { COLORS, SPACING, TAB_BAR_CONTENT_HEIGHT, SECTION_COLORS } from '../constants/theme';
+import { SECTIONS, type SectionConfig } from '../constants/sections';
+import {
+  COLORS,
+  SPACING,
+  TAB_BAR_CONTENT_HEIGHT,
+  SECTION_COLORS,
+  SECTION_TILE,
+} from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -30,7 +36,7 @@ function buildRows(sections: SectionConfig[]): Row[] {
   let i = 0;
   while (i < sections.length) {
     const current = sections[i];
-    if (current.layout === 'full') {
+    if (current.layout !== 'half') {
       rows.push({ type: 'full', section: current });
       i += 1;
       continue;
@@ -80,7 +86,8 @@ export default function HubScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.heading}>Что вам нужно сегодня?</Text>
+        <Text style={styles.heading}>Кхи х1у оьш хьун ?</Text>
+        <View style={styles.headingUnderline} />
 
         <View style={styles.grid}>
           {rows.map((row, index) => {
@@ -139,10 +146,18 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   heading: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
     color: SECTION_COLORS.title,
-    marginBottom: 16,
+  },
+  headingUnderline: {
+    width: 96,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.primary,
+    marginTop: 6,
+    marginBottom: 18,
   },
   grid: {
     gap: SECTION_TILE.gap,
